@@ -14,8 +14,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o agent cmd/main.go
 
 FROM alpine:latest
 
-# Install basic tools
-RUN apk --no-cache add curl
+# Install Docker CLI and curl
+RUN apk --no-cache add docker-cli curl
 
 WORKDIR /root/
 
