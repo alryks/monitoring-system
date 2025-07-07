@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  agent:
+    build: .
+    environment:
+      CORE_API_URL: http://core:80/api
+      HEARTBEAT_INTERVAL: 5s
+      AGENT_ID: ${AGENT_ID:-agent-1}
+    volumes:
+      - /:/host:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    restart: unless-stopped 
