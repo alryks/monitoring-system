@@ -18,15 +18,12 @@ func NewAgentService(db *database.DB) *AgentService {
 	return &AgentService{db: db}
 }
 
-// CreateNode создает новый узел администратором
 func (s *AgentService) CreateNode(req models.CreateNodeRequest) (*models.CreateNodeResponse, error) {
-	// Generate API key
 	apiKey, err := s.generateAPIKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate API key: %w", err)
 	}
 
-	// Insert node into database
 	query := `
 		INSERT INTO agents (name, url, api_key, description, created_at, updated_at, status)
 		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'offline')
@@ -50,13 +47,11 @@ func (s *AgentService) CreateNode(req models.CreateNodeRequest) (*models.CreateN
 }
 
 func (s *AgentService) RegisterAgent(req models.RegisterRequest) (*models.RegisterResponse, error) {
-	// Generate API key
 	apiKey, err := s.generateAPIKey()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate API key: %w", err)
 	}
 
-	// Insert agent into database
 	query := `
 		INSERT INTO agents (name, url, api_key, created_at, updated_at)
 		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -135,7 +130,6 @@ func (s *AgentService) GetAllAgents() ([]models.Agent, error) {
 			return nil, fmt.Errorf("failed to scan agent: %w", err)
 		}
 
-		// Determine status based on last_seen_at
 		if time.Since(agent.LastSeenAt) > 30*time.Second {
 			agent.Status = "offline"
 		} else {

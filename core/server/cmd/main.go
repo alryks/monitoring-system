@@ -18,34 +18,28 @@ import (
 )
 
 func main() {
-	// Connect to database
 	db, err := database.NewConnection()
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	// Run migrations
 	if err := db.RunMigrations(); err != nil {
 		log.Fatalf("Failed to run migrations: %v", err)
 	}
 
-	// Initialize services
 	agentService := services.NewAgentService(db)
 
-	// Initialize handlers
 	agentHandler := handlers.NewAgentHandler(agentService)
 
 	r := chi.NewRouter()
 
-	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	// CORS
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -55,11 +49,9 @@ func main() {
 		MaxAge:           300,
 	}))
 
-	// API routes
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/ping", pingHandler)
 
-		// Agent routes
 		r.Post("/agents/create", agentHandler.CreateNode)
 		r.Post("/agents/register", agentHandler.RegisterAgent)
 		r.Post("/heartbeat", agentHandler.Heartbeat)

@@ -17,7 +17,6 @@ func NewAgentHandler(agentService *services.AgentService) *AgentHandler {
 	return &AgentHandler{agentService: agentService}
 }
 
-// CreateNode создает новый узел администратором (вместо автоматической регистрации)
 func (h *AgentHandler) CreateNode(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateNodeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -25,7 +24,6 @@ func (h *AgentHandler) CreateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic validation
 	if req.Name == "" {
 		http.Error(w, "Name is required", http.StatusBadRequest)
 		return
@@ -55,7 +53,6 @@ func (h *AgentHandler) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Basic validation
 	if req.Name == "" {
 		http.Error(w, "Name is required", http.StatusBadRequest)
 		return
@@ -80,14 +77,12 @@ func (h *AgentHandler) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AgentHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
-	// Extract API key from Authorization header
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {
 		http.Error(w, "Authorization header is required", http.StatusUnauthorized)
 		return
 	}
 
-	// Extract token from "Bearer <token>"
 	tokenParts := strings.Split(authHeader, " ")
 	if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
 		http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
@@ -95,27 +90,23 @@ func (h *AgentHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	}
 	apiKey := tokenParts[1]
 
-	// Verify agent exists
 	_, err := h.agentService.GetAgentByAPIKey(apiKey)
 	if err != nil {
 		http.Error(w, "Invalid API key", http.StatusUnauthorized)
 		return
 	}
 
-	// Parse heartbeat request
 	var req models.HeartbeatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	// Update last seen timestamp
 	if err := h.agentService.UpdateLastSeen(apiKey); err != nil {
 		http.Error(w, "Failed to update agent status", http.StatusInternalServerError)
 		return
 	}
 
-	// Return response with empty tasks for now
 	resp := models.HeartbeatResponse{
 		Status: "ok",
 		Tasks:  []models.Task{},

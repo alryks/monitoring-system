@@ -16,13 +16,11 @@ type Agent struct {
 	Description string    `json:"description" db:"description"`
 }
 
-// CreateNodeRequest для создания узла администратором
 type CreateNodeRequest struct {
 	Name        string `json:"name" validate:"required,min=1,max=255"`
 	Description string `json:"description"`
 }
 
-// CreateNodeResponse возвращает созданный узел с учетными данными
 type CreateNodeResponse struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"`

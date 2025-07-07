@@ -86,21 +86,18 @@ func (a *Agent) Start() {
 	log.Printf("Core API URL: %s", a.CoreURL)
 	log.Printf("Heartbeat interval: %v", a.Interval)
 
-	// Test Docker connection
 	if err := a.testDockerConnection(); err != nil {
 		log.Printf("Warning: Failed to connect to Docker: %v", err)
 	} else {
 		log.Printf("Successfully connected to Docker")
 	}
 
-	// Test connection to Core
 	if err := a.testConnection(); err != nil {
 		log.Printf("Warning: Failed to connect to Core: %v", err)
 	} else {
 		log.Printf("Successfully connected to Core")
 	}
 
-	// Start heartbeat loop
 	ticker := time.NewTicker(a.Interval)
 	defer ticker.Stop()
 
@@ -196,7 +193,6 @@ func (a *Agent) sendHeartbeat() error {
 
 	log.Printf("Heartbeat sent successfully. Status: %s, Tasks: %d", heartbeatResp.Status, len(heartbeatResp.Tasks))
 
-	// Process tasks
 	for _, task := range heartbeatResp.Tasks {
 		if err := a.processTask(task); err != nil {
 			log.Printf("Failed to process task %s: %v", task.ID, err)
@@ -226,7 +222,7 @@ func (a *Agent) processTask(task Task) error {
 
 func (a *Agent) processUpdateNginx(task Task) error {
 	log.Printf("Would update NGINX configuration: %+v", task.Payload)
-	// TODO: Implement NGINX configuration update
+	// TODO: NGINX update
 	return nil
 }
 
@@ -261,7 +257,7 @@ func (a *Agent) processIssueSSL(task Task) error {
 	}
 
 	log.Printf("Would issue SSL certificate for domain: %s", domain)
-	// TODO: Implement SSL certificate issuance using acme.sh
+	// TODO: SSL certificate with acme.sh
 	return nil
 }
 
@@ -271,13 +267,11 @@ func (a *Agent) processDockerCommand(task Task) error {
 		return fmt.Errorf("missing or invalid command in task payload")
 	}
 
-	// Parse command safely
 	args := strings.Fields(command)
 	if len(args) == 0 {
 		return fmt.Errorf("empty command")
 	}
 
-	// Only allow specific docker commands for security
 	allowedCommands := []string{"ps", "stats", "logs", "inspect", "version"}
 	if !contains(allowedCommands, args[0]) {
 		return fmt.Errorf("command not allowed: %s", args[0])

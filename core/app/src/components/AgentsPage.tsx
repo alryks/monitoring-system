@@ -61,7 +61,7 @@ function AgentsPage() {
       setCreatedNode(response.data)
       setNewNode({ name: '', description: '' })
       setShowCreateForm(false)
-      fetchAgents() // Обновляем список
+      fetchAgents()
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
         setError('Узел с таким названием уже существует')
@@ -76,7 +76,6 @@ function AgentsPage() {
   useEffect(() => {
     fetchAgents()
     
-    // Auto-refresh every 5 seconds
     const interval = setInterval(fetchAgents, 5000)
     return () => clearInterval(interval)
   }, [])

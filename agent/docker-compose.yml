@@ -2,7 +2,6 @@ services:
   agent:
     build: .
     environment:
-      # Эти переменные ДОЛЖНЫ быть заданы в .env файле
       AGENT_ID: ${AGENT_ID}
       API_KEY: ${API_KEY}
       CORE_API_URL: ${CORE_API_URL:-http://core:80/api}

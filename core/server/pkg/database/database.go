@@ -37,7 +37,6 @@ func (db *DB) Close() error {
 }
 
 func (db *DB) RunMigrations() error {
-	// Simple migration runner - create agents table if not exists
 	query := `
 	CREATE TABLE IF NOT EXISTS agents (
 		id SERIAL PRIMARY KEY,
