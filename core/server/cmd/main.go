@@ -11,9 +11,31 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+
+	"monitoring-system/core/server/pkg/database"
+	"monitoring-system/core/server/pkg/handlers"
+	"monitoring-system/core/server/pkg/services"
 )
 
 func main() {
+	// Connect to database
+	db, err := database.NewConnection()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	// Run migrations
+	if err := db.RunMigrations(); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+
+	// Initialize services
+	agentService := services.NewAgentService(db)
+
+	// Initialize handlers
+	agentHandler := handlers.NewAgentHandler(agentService)
+
 	r := chi.NewRouter()
 
 	// Middleware
@@ -36,6 +58,11 @@ func main() {
 	// API routes
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/ping", pingHandler)
+
+		// Agent routes
+		r.Post("/agents/register", agentHandler.RegisterAgent)
+		r.Post("/heartbeat", agentHandler.Heartbeat)
+		r.Get("/agents", agentHandler.GetAgents)
 	})
 
 	port := os.Getenv("API_PORT")

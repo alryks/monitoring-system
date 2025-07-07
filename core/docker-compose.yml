@@ -3,24 +3,36 @@ services:
     image: postgres:17
     environment:
       POSTGRES_DB: monitoring
-      POSTGRES_USER: monitoring
-      POSTGRES_PASSWORD: monitoring123
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - monitoring
     restart: unless-stopped
 
   server:
     build: ./server
     environment:
-      DATABASE_URL: postgres://monitoring:monitoring123@postgres:5432/monitoring?sslmode=disable
+      DATABASE_URL: postgres://postgres:password@postgres:5432/monitoring?sslmode=disable
       API_PORT: 8080
       JWT_SECRET: secret
     depends_on:
       - postgres
+    ports:
+      - "8080:8080"
+    networks:
+      - monitoring
     restart: unless-stopped
 
   app:
     build: ./app
+    ports:
+      - "3000:3000"
+    networks:
+      - monitoring
     restart: unless-stopped
 
   nginx:
@@ -28,11 +40,17 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - server
       - app
+    networks:
+      - monitoring
     restart: unless-stopped
 
 volumes:
-  postgres_data: 
+  postgres_data:
+
+networks:
+  monitoring:
+    driver: bridge
