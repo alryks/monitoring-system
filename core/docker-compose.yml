@@ -3,8 +3,8 @@ services:
     image: postgres:17
     environment:
       POSTGRES_DB: monitoring
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: monitoring
+      POSTGRES_PASSWORD: monitoring123
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
@@ -16,7 +16,7 @@ services:
   server:
     build: ./server
     environment:
-      DATABASE_URL: postgres://postgres:password@postgres:5432/monitoring?sslmode=disable
+      DATABASE_URL: postgres://monitoring:monitoring123@postgres:5432/monitoring?sslmode=disable
       API_PORT: 8080
       JWT_SECRET: secret
     depends_on:
