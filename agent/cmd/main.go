@@ -9,9 +9,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
-
-	"github.com/docker/docker/client"
 )
 
 type Agent struct {
@@ -19,7 +19,6 @@ type Agent struct {
 	CoreURL  string
 	APIKey   string
 	Interval time.Duration
-	docker   *client.Client
 }
 
 type HeartbeatRequest struct {
@@ -58,16 +57,10 @@ func NewAgent() *Agent {
 		}
 	}
 
-	dockerClient, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		log.Printf("Warning: Failed to create Docker client: %v", err)
-	}
-
 	return &Agent{
 		ID:       agentID,
 		CoreURL:  coreURL,
 		Interval: interval,
-		docker:   dockerClient,
 	}
 }
 
@@ -75,6 +68,13 @@ func (a *Agent) Start() {
 	log.Printf("Starting agent %s", a.ID)
 	log.Printf("Core API URL: %s", a.CoreURL)
 	log.Printf("Heartbeat interval: %v", a.Interval)
+
+	// Test Docker connection
+	if err := a.testDockerConnection(); err != nil {
+		log.Printf("Warning: Failed to connect to Docker: %v", err)
+	} else {
+		log.Printf("Successfully connected to Docker")
+	}
 
 	// Test connection to Core
 	if err := a.testConnection(); err != nil {
@@ -95,6 +95,21 @@ func (a *Agent) Start() {
 			}
 		}
 	}
+}
+
+func (a *Agent) testDockerConnection() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Version}}")
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get docker version: %w", err)
+	}
+
+	version := strings.TrimSpace(string(output))
+	log.Printf("Docker version: %s", version)
+	return nil
 }
 
 func (a *Agent) testConnection() error {
@@ -181,16 +196,99 @@ func (a *Agent) processTask(task Task) error {
 
 	switch task.Type {
 	case "UPDATE_NGINX":
-		log.Printf("Would update NGINX configuration: %+v", task.Payload)
+		return a.processUpdateNginx(task)
 	case "GET_LOGS":
-		log.Printf("Would get logs: %+v", task.Payload)
+		return a.processGetLogs(task)
 	case "ISSUE_SSL":
-		log.Printf("Would issue SSL certificate: %+v", task.Payload)
+		return a.processIssueSSL(task)
+	case "DOCKER_COMMAND":
+		return a.processDockerCommand(task)
 	default:
 		log.Printf("Unknown task type: %s", task.Type)
+		return fmt.Errorf("unknown task type: %s", task.Type)
+	}
+}
+
+func (a *Agent) processUpdateNginx(task Task) error {
+	log.Printf("Would update NGINX configuration: %+v", task.Payload)
+	// TODO: Implement NGINX configuration update
+	return nil
+}
+
+func (a *Agent) processGetLogs(task Task) error {
+	containerID, ok := task.Payload["container_id"].(string)
+	if !ok {
+		return fmt.Errorf("missing or invalid container_id in task payload")
 	}
 
+	tail := 100
+	if t, ok := task.Payload["tail"].(float64); ok {
+		tail = int(t)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "docker", "logs", "--tail", fmt.Sprintf("%d", tail), containerID)
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to get container logs: %w", err)
+	}
+
+	log.Printf("Container %s logs (%d lines):\n%s", containerID, tail, string(output))
 	return nil
+}
+
+func (a *Agent) processIssueSSL(task Task) error {
+	domain, ok := task.Payload["domain"].(string)
+	if !ok {
+		return fmt.Errorf("missing or invalid domain in task payload")
+	}
+
+	log.Printf("Would issue SSL certificate for domain: %s", domain)
+	// TODO: Implement SSL certificate issuance using acme.sh
+	return nil
+}
+
+func (a *Agent) processDockerCommand(task Task) error {
+	command, ok := task.Payload["command"].(string)
+	if !ok {
+		return fmt.Errorf("missing or invalid command in task payload")
+	}
+
+	// Parse command safely
+	args := strings.Fields(command)
+	if len(args) == 0 {
+		return fmt.Errorf("empty command")
+	}
+
+	// Only allow specific docker commands for security
+	allowedCommands := []string{"ps", "stats", "logs", "inspect", "version"}
+	if !contains(allowedCommands, args[0]) {
+		return fmt.Errorf("command not allowed: %s", args[0])
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	fullArgs := append([]string{args[0]}, args[1:]...)
+	cmd := exec.CommandContext(ctx, "docker", fullArgs...)
+	output, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to execute docker command: %w", err)
+	}
+
+	log.Printf("Docker command '%s' output:\n%s", command, string(output))
+	return nil
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 func main() {
