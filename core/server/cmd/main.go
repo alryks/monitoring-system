@@ -60,6 +60,7 @@ func main() {
 		r.Get("/ping", pingHandler)
 
 		// Agent routes
+		r.Post("/agents/create", agentHandler.CreateNode)
 		r.Post("/agents/register", agentHandler.RegisterAgent)
 		r.Post("/heartbeat", agentHandler.Heartbeat)
 		r.Get("/agents", agentHandler.GetAgents)

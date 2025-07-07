@@ -18,6 +18,37 @@ func NewAgentService(db *database.DB) *AgentService {
 	return &AgentService{db: db}
 }
 
+// CreateNode создает новый узел администратором
+func (s *AgentService) CreateNode(req models.CreateNodeRequest) (*models.CreateNodeResponse, error) {
+	// Generate API key
+	apiKey, err := s.generateAPIKey()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate API key: %w", err)
+	}
+
+	// Insert node into database
+	query := `
+		INSERT INTO agents (name, url, api_key, description, created_at, updated_at, status)
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'offline')
+		RETURNING id, created_at
+	`
+
+	var nodeID int
+	var createdAt time.Time
+	err = s.db.QueryRow(query, req.Name, "", apiKey, req.Description).Scan(&nodeID, &createdAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to insert node: %w", err)
+	}
+
+	return &models.CreateNodeResponse{
+		ID:          nodeID,
+		Name:        req.Name,
+		Description: req.Description,
+		APIKey:      apiKey,
+		CreatedAt:   createdAt.Format(time.RFC3339),
+	}, nil
+}
+
 func (s *AgentService) RegisterAgent(req models.RegisterRequest) (*models.RegisterResponse, error) {
 	// Generate API key
 	apiKey, err := s.generateAPIKey()
@@ -47,14 +78,14 @@ func (s *AgentService) RegisterAgent(req models.RegisterRequest) (*models.Regist
 
 func (s *AgentService) GetAgentByAPIKey(apiKey string) (*models.Agent, error) {
 	query := `
-		SELECT id, name, url, api_key, last_seen_at, created_at, updated_at, status
+		SELECT id, name, url, api_key, last_seen_at, created_at, updated_at, status, COALESCE(description, '') as description
 		FROM agents WHERE api_key = $1
 	`
 
 	agent := &models.Agent{}
 	err := s.db.QueryRow(query, apiKey).Scan(
 		&agent.ID, &agent.Name, &agent.URL, &agent.APIKey,
-		&agent.LastSeenAt, &agent.CreatedAt, &agent.UpdatedAt, &agent.Status,
+		&agent.LastSeenAt, &agent.CreatedAt, &agent.UpdatedAt, &agent.Status, &agent.Description,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent: %w", err)
@@ -82,7 +113,7 @@ func (s *AgentService) UpdateLastSeen(apiKey string) error {
 
 func (s *AgentService) GetAllAgents() ([]models.Agent, error) {
 	query := `
-		SELECT id, name, url, last_seen_at, created_at, updated_at, status
+		SELECT id, name, url, last_seen_at, created_at, updated_at, status, COALESCE(description, '') as description
 		FROM agents
 		ORDER BY created_at DESC
 	`
@@ -98,7 +129,7 @@ func (s *AgentService) GetAllAgents() ([]models.Agent, error) {
 		var agent models.Agent
 		err := rows.Scan(
 			&agent.ID, &agent.Name, &agent.URL,
-			&agent.LastSeenAt, &agent.CreatedAt, &agent.UpdatedAt, &agent.Status,
+			&agent.LastSeenAt, &agent.CreatedAt, &agent.UpdatedAt, &agent.Status, &agent.Description,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan agent: %w", err)

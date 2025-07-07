@@ -17,6 +17,37 @@ func NewAgentHandler(agentService *services.AgentService) *AgentHandler {
 	return &AgentHandler{agentService: agentService}
 }
 
+// CreateNode создает новый узел администратором (вместо автоматической регистрации)
+func (h *AgentHandler) CreateNode(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateNodeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Basic validation
+	if req.Name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+	if req.Description == "" {
+		req.Description = "Узел " + req.Name
+	}
+
+	resp, err := h.agentService.CreateNode(req)
+	if err != nil {
+		if strings.Contains(err.Error(), "duplicate key") {
+			http.Error(w, "Node with this name already exists", http.StatusConflict)
+			return
+		}
+		http.Error(w, "Failed to create node", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
 func (h *AgentHandler) RegisterAgent(w http.ResponseWriter, r *http.Request) {
 	var req models.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

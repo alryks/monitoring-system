@@ -9,12 +9,25 @@ interface Agent {
   created_at: string
   updated_at: string
   status: string
+  description: string
+}
+
+interface CreateNodeResponse {
+  id: number
+  name: string
+  description: string
+  api_key: string
+  created_at: string
 }
 
 function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [createLoading, setCreateLoading] = useState(false)
+  const [newNode, setNewNode] = useState({ name: '', description: '' })
+  const [createdNode, setCreatedNode] = useState<CreateNodeResponse | null>(null)
 
   const fetchAgents = async () => {
     setLoading(true)
@@ -27,6 +40,36 @@ function AgentsPage() {
       setError(err instanceof Error ? err.message : 'Произошла ошибка')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const createNode = async () => {
+    if (!newNode.name.trim()) {
+      setError('Название узла обязательно')
+      return
+    }
+
+    setCreateLoading(true)
+    setError(null)
+
+    try {
+      const response = await axios.post<CreateNodeResponse>('/api/agents/create', {
+        name: newNode.name.trim(),
+        description: newNode.description.trim() || `Узел ${newNode.name.trim()}`
+      })
+      
+      setCreatedNode(response.data)
+      setNewNode({ name: '', description: '' })
+      setShowCreateForm(false)
+      fetchAgents() // Обновляем список
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        setError('Узел с таким названием уже существует')
+      } else {
+        setError(err instanceof Error ? err.message : 'Ошибка создания узла')
+      }
+    } finally {
+      setCreateLoading(false)
     }
   }
 
@@ -80,29 +123,115 @@ function AgentsPage() {
   return (
     <div className="agents-page">
       <div className="page-header">
-        <h1>Агенты системы</h1>
-        <p>Список всех зарегистрированных агентов и их статус</p>
-        <button onClick={fetchAgents} disabled={loading} className="refresh-btn">
-          {loading ? 'Обновление...' : 'Обновить'}
-        </button>
+        <h1>Узлы системы</h1>
+        <p>Управление узлами мониторинга</p>
+        <div className="header-actions">
+          <button onClick={fetchAgents} disabled={loading} className="refresh-btn">
+            {loading ? 'Обновление...' : 'Обновить'}
+          </button>
+          <button 
+            onClick={() => setShowCreateForm(true)} 
+            className="create-btn"
+            disabled={showCreateForm}
+          >
+            Создать узел
+          </button>
+        </div>
       </div>
 
       {error && (
         <div className="error">
-          <p>Ошибка загрузки: {error}</p>
+          <p>Ошибка: {error}</p>
+          <button onClick={() => setError(null)} className="close-error">×</button>
+        </div>
+      )}
+
+      {/* Форма создания узла */}
+      {showCreateForm && (
+        <div className="create-form">
+          <h3>Создание нового узла</h3>
+          <div className="form-group">
+            <label>Название узла:</label>
+            <input
+              type="text"
+              value={newNode.name}
+              onChange={(e) => setNewNode({ ...newNode, name: e.target.value })}
+              placeholder="Например: server-1"
+              disabled={createLoading}
+            />
+          </div>
+          <div className="form-group">
+            <label>Описание (опционально):</label>
+            <input
+              type="text"
+              value={newNode.description}
+              onChange={(e) => setNewNode({ ...newNode, description: e.target.value })}
+              placeholder="Описание назначения узла"
+              disabled={createLoading}
+            />
+          </div>
+          <div className="form-actions">
+            <button 
+              onClick={createNode} 
+              disabled={createLoading || !newNode.name.trim()}
+              className="create-btn"
+            >
+              {createLoading ? 'Создание...' : 'Создать'}
+            </button>
+            <button 
+              onClick={() => {
+                setShowCreateForm(false)
+                setNewNode({ name: '', description: '' })
+              }}
+              disabled={createLoading}
+              className="cancel-btn"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Показ созданного узла с учетными данными */}
+      {createdNode && (
+        <div className="node-created">
+          <h3>✅ Узел успешно создан!</h3>
+          <div className="credentials">
+            <h4>Данные для настройки агента:</h4>
+            <div className="cred-item">
+              <label>ID узла:</label>
+              <code>{createdNode.id}</code>
+            </div>
+            <div className="cred-item">
+              <label>API Ключ:</label>
+              <code className="api-key">{createdNode.api_key}</code>
+            </div>
+            <div className="instructions">
+              <p><strong>Инструкция:</strong></p>
+              <p>1. Скопируйте эти данные</p>
+              <p>2. Создайте файл .env на сервере агента</p>
+              <p>3. Добавьте в .env:</p>
+              <pre>{`AGENT_ID=${createdNode.id}
+API_KEY=${createdNode.api_key}
+CORE_API_URL=http://ваш-core-сервер/api`}</pre>
+            </div>
+          </div>
+          <button onClick={() => setCreatedNode(null)} className="close-btn">
+            Закрыть
+          </button>
         </div>
       )}
 
       {loading && agents.length === 0 ? (
         <div className="loading">
-          <p>Загрузка агентов...</p>
+          <p>Загрузка узлов...</p>
         </div>
       ) : (
         <div className="agents-grid">
           {agents.length === 0 ? (
             <div className="no-agents">
-              <p>Агенты не найдены</p>
-              <p>Запустите агент на удаленном сервере для его автоматической регистрации</p>
+              <p>Узлы не найдены</p>
+              <p>Создайте первый узел с помощью кнопки "Создать узел"</p>
             </div>
           ) : (
             agents.map((agent) => (
@@ -123,10 +252,12 @@ function AgentsPage() {
                     <span className="value">{agent.id}</span>
                   </div>
                   
-                  <div className="detail-row">
-                    <span className="label">URL:</span>
-                    <span className="value">{agent.url}</span>
-                  </div>
+                  {agent.description && (
+                    <div className="detail-row">
+                      <span className="label">Описание:</span>
+                      <span className="value">{agent.description}</span>
+                    </div>
+                  )}
                   
                   <div className="detail-row">
                     <span className="label">Последняя активность:</span>
@@ -136,7 +267,7 @@ function AgentsPage() {
                   </div>
                   
                   <div className="detail-row">
-                    <span className="label">Зарегистрирован:</span>
+                    <span className="label">Создан:</span>
                     <span className="value">{formatDate(agent.created_at)}</span>
                   </div>
                 </div>
@@ -147,7 +278,7 @@ function AgentsPage() {
       )}
       
       <div className="page-footer">
-        <p>Агенты с последней активностью более 30 секунд назад считаются оффлайн</p>
+        <p>Узлы с последней активностью более 30 секунд назад считаются оффлайн</p>
         <p>Обновление каждые 5 секунд</p>
       </div>
     </div>

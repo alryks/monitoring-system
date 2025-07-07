@@ -2,9 +2,11 @@ services:
   agent:
     build: .
     environment:
-      CORE_API_URL: http://core:80/api
-      HEARTBEAT_INTERVAL: 5s
-      AGENT_ID: ${AGENT_ID:-agent-1}
+      # Эти переменные ДОЛЖНЫ быть заданы в .env файле
+      AGENT_ID: ${AGENT_ID}
+      API_KEY: ${API_KEY}
+      CORE_API_URL: ${CORE_API_URL:-http://core:80/api}
+      HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-5s}
     volumes:
       - /:/host:ro
       - /var/run/docker.sock:/var/run/docker.sock

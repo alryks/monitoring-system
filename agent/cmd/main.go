@@ -6,12 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -59,7 +57,12 @@ func NewAgent() *Agent {
 
 	agentID := os.Getenv("AGENT_ID")
 	if agentID == "" {
-		agentID = "agent-1"
+		log.Fatal("AGENT_ID environment variable is required")
+	}
+
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		log.Fatal("API_KEY environment variable is required")
 	}
 
 	intervalStr := os.Getenv("HEARTBEAT_INTERVAL")
@@ -73,6 +76,7 @@ func NewAgent() *Agent {
 	return &Agent{
 		ID:       agentID,
 		CoreURL:  coreURL,
+		APIKey:   apiKey,
 		Interval: interval,
 	}
 }
@@ -96,11 +100,6 @@ func (a *Agent) Start() {
 		log.Printf("Successfully connected to Core")
 	}
 
-	// Load or register agent
-	if err := a.loadOrRegister(); err != nil {
-		log.Fatalf("Failed to load or register agent: %v", err)
-	}
-
 	// Start heartbeat loop
 	ticker := time.NewTicker(a.Interval)
 	defer ticker.Stop()
@@ -113,87 +112,6 @@ func (a *Agent) Start() {
 			}
 		}
 	}
-}
-
-func (a *Agent) loadOrRegister() error {
-	// Try to load existing API key
-	apiKey, err := a.loadAPIKey()
-	if err == nil && apiKey != "" {
-		a.APIKey = apiKey
-		log.Printf("Loaded existing API key")
-		return nil
-	}
-
-	// Register new agent
-	log.Printf("No API key found, registering new agent...")
-	return a.register()
-}
-
-func (a *Agent) loadAPIKey() (string, error) {
-	keyFile := "/root/.agent_key"
-	data, err := ioutil.ReadFile(keyFile)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
-}
-
-func (a *Agent) saveAPIKey(apiKey string) error {
-	keyFile := "/root/.agent_key"
-	dir := filepath.Dir(keyFile)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return ioutil.WriteFile(keyFile, []byte(apiKey), 0600)
-}
-
-func (a *Agent) register() error {
-	reqData := RegisterRequest{
-		Name: a.ID,
-		URL:  "http://agent:80", // Agent's nginx URL
-	}
-
-	body, err := json.Marshal(reqData)
-	if err != nil {
-		return fmt.Errorf("failed to marshal registration request: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/agents/register", a.CoreURL)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send registration request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("registration failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var registerResp RegisterResponse
-	if err := json.NewDecoder(resp.Body).Decode(&registerResp); err != nil {
-		return fmt.Errorf("failed to decode registration response: %w", err)
-	}
-
-	a.APIKey = registerResp.APIKey
-
-	if err := a.saveAPIKey(a.APIKey); err != nil {
-		log.Printf("Warning: Failed to save API key: %v", err)
-	}
-
-	log.Printf("Successfully registered agent with ID: %d", registerResp.ID)
-	return nil
 }
 
 func (a *Agent) testDockerConnection() error {
@@ -236,10 +154,6 @@ func (a *Agent) testConnection() error {
 }
 
 func (a *Agent) sendHeartbeat() error {
-	if a.APIKey == "" {
-		return fmt.Errorf("no API key available")
-	}
-
 	heartbeat := HeartbeatRequest{
 		AgentID:   a.ID,
 		Timestamp: time.Now(),

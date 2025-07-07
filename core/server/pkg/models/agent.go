@@ -5,14 +5,30 @@ import (
 )
 
 type Agent struct {
-	ID         int       `json:"id" db:"id"`
-	Name       string    `json:"name" db:"name"`
-	URL        string    `json:"url" db:"url"`
-	APIKey     string    `json:"api_key,omitempty" db:"api_key"`
-	LastSeenAt time.Time `json:"last_seen_at" db:"last_seen_at"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
-	Status     string    `json:"status" db:"status"`
+	ID          int       `json:"id" db:"id"`
+	Name        string    `json:"name" db:"name"`
+	URL         string    `json:"url" db:"url"`
+	APIKey      string    `json:"api_key,omitempty" db:"api_key"`
+	LastSeenAt  time.Time `json:"last_seen_at" db:"last_seen_at"`
+	CreatedAt   time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	Status      string    `json:"status" db:"status"`
+	Description string    `json:"description" db:"description"`
+}
+
+// CreateNodeRequest для создания узла администратором
+type CreateNodeRequest struct {
+	Name        string `json:"name" validate:"required,min=1,max=255"`
+	Description string `json:"description"`
+}
+
+// CreateNodeResponse возвращает созданный узел с учетными данными
+type CreateNodeResponse struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	APIKey      string `json:"api_key"`
+	CreatedAt   string `json:"created_at"`
 }
 
 type RegisterRequest struct {
