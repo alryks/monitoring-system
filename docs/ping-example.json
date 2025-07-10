@@ -1,0 +1,94 @@
+{
+    "metrics": {
+        "cpu": [
+            {
+                "name": "cpu0",
+                "usage": 0.93
+            }
+        ],
+        "memory": {
+            "ram": {
+                "total": 1024,
+                "usage": 713
+            },
+            "swap": {
+                "total": 511,
+                "usage": 210
+            }
+        },
+        "disk": [
+            {
+                "name": "sda",
+                "read_bytes": 2445,
+                "write_bytes": 113,
+                "reads": 5,
+                "writes": 1
+            }
+        ],
+        "network": {
+            "public_ip": "203.0.113.1",
+            "sent": 1748255,
+            "received": 1681361
+        }
+    },
+    "docker": {
+        "containers": [
+            {
+                "id": "392496ecbd016f1f86f41e6876dda045730f92575cbd2c63b880320336a2d3af",
+                "created": "2025-07-10T12:08:04.953965667Z",
+                "status": "running",
+                "restart_count": 0,
+                "image": "889e2cc329c8ea157b2ac764f62dcc6b4f3e495d4a47583287c1f96df9823482",
+                "name": "my-container",
+                "ip": "172.17.0.2",
+                "mac": "02:42:ac:11:00:02",
+                "cpu": 0.01,
+                "memory": 25165824,
+                "network": {
+                    "sent": 1412,
+                    "received": 1234,
+                    "networks": [
+                        "my-network"
+                    ]
+                },
+                "volumes": [
+                    "config"
+                ],
+                "logs": [
+                    "2025-07-10T12:08:04.953965667Z [INFO] Starting server..."
+                ]
+            }
+        ],
+        "images": [
+            {
+                "id": "889e2cc329c8ea157b2ac764f62dcc6b4f3e495d4a47583287c1f96df9823482",
+                "created": "2025-06-24T20:52:14Z",
+                "size": 197642500,
+                "tags": [
+                    "latest",
+                    "v1.0.0"
+                ],
+                "architecture": "amd64"
+            }
+        ],
+        "volumes": [
+            {
+                "name": "config",
+                "created": "2025-05-13T14:29:51Z",
+                "driver": "local",
+                "mountpoint": "/var/lib/docker/volumes/config/_data"
+            }
+        ],
+        "networks": [
+            {
+                "id": "0d5bab45e78c12d80b956ffd4ec3e233943e3dad9cd580d7a92e198a07851fa3",
+                "created": "2025-07-07T02:33:08.893410921Z",
+                "name": "my-network",
+                "driver": "bridge",
+                "scope": "local",
+                "subnet": "172.17.0.0/16",
+                "gateway": "172.17.0.1"
+            }
+        ]
+    }
+}
