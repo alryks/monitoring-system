@@ -1,19 +1,38 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
 	"log"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	_ "github.com/lib/pq"
+
+	"monitoring-system/core/server/internal/auth"
+	"monitoring-system/core/server/internal/config"
+	"monitoring-system/core/server/internal/database"
+	"monitoring-system/core/server/internal/handlers"
 )
 
 func main() {
+	// Инициализируем конфигурацию
+	cfg := config.Load()
+
+	// Подключаемся к базе данных
+	db, err := database.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	defer db.Close()
+
+	// Инициализируем сервисы
+	authService := auth.NewService(cfg.JWTSecret)
+
+	// Инициализируем обработчики
+	h := handlers.New(db, authService)
+
+	// Настраиваем роутер
 	r := chi.NewRouter()
 
 	// Middleware
@@ -22,70 +41,38 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"*"},
 		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: false,
+		AllowCredentials: true,
 		MaxAge:           300,
 	}))
 
-	// API routes
+	// API маршруты
 	r.Route("/api", func(r chi.Router) {
-		r.Post("/agent", handleAgentData)
+		// Публичные маршруты
+		r.Post("/login", h.Login)
+
+		// Маршруты для агентов (с Bearer токеном)
+		r.Post("/agent/ping", h.AgentPing)
+
+		// Защищенные маршруты (требуют JWT аутентификации)
+		r.Group(func(r chi.Router) {
+			r.Use(authService.JWTMiddleware)
+
+			// Управление агентами
+			r.Get("/agents", h.GetAgents)
+			r.Post("/agents", h.CreateAgent)
+			r.Put("/agents/{id}", h.UpdateAgent)
+			r.Delete("/agents/{id}", h.DeleteAgent)
+
+			// Метрики и мониторинг
+			r.Get("/agents/{id}/metrics", h.GetAgentMetrics)
+			r.Get("/agents/{id}/containers", h.GetAgentContainers)
+			r.Get("/dashboard", h.GetDashboardData)
+		})
 	})
 
-	log.Println("Server started on :8000")
-	if err := http.ListenAndServe(":8000", r); err != nil {
-		log.Fatal("Server failed to start:", err)
-	}
-}
-
-func handleAgentData(w http.ResponseWriter, r *http.Request) {
-	// Читаем тело запроса
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		log.Printf("Error reading request body: %v", err)
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	// // Проверяем токен авторизации
-	// authHeader := r.Header.Get("Authorization")
-	// if authHeader == "" {
-	// 	log.Println("Missing Authorization header")
-	// 	http.Error(w, "Missing Authorization header", http.StatusUnauthorized)
-	// 	return
-	// }
-
-	// // Простая проверка токена (Bearer token)
-	// expectedToken := "Bearer my-token"
-	// if authHeader != expectedToken {
-	// 	log.Printf("Invalid token: %s", authHeader)
-	// 	http.Error(w, "Invalid token", http.StatusUnauthorized)
-	// 	return
-	// }
-
-	// Проверяем, что это валидный JSON
-	var jsonData interface{}
-	if err := json.Unmarshal(body, &jsonData); err != nil {
-		log.Printf("Invalid JSON: %v", err)
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Форматируем JSON для красивого вывода
-	var prettyJSON bytes.Buffer
-	if err := json.Indent(&prettyJSON, body, "", "  "); err != nil {
-		fmt.Println(string(body))
-	} else {
-		fmt.Println(prettyJSON.String())
-	}
-
-	fmt.Println("-------------")
-	fmt.Println()
-
-	// Отправляем ответ агенту
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "ok", "message": "Data received successfully"}`))
+	// Запускаем сервер
+	log.Printf("Server starting on port %s", cfg.Port)
+	log.Fatal(http.ListenAndServe(":"+cfg.Port, r))
 }

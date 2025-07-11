@@ -1,0 +1,398 @@
+.container {
+  padding: 2rem 0;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.addButton:hover {
+  background-color: #2563eb;
+}
+
+.addIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.agentsList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.agentCard {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  border: 1px solid #e2e8f0;
+}
+
+.agentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.agentInfo {
+  flex: 1;
+}
+
+.agentName {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.25rem;
+}
+
+.agentStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.statusIcon {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.statusIcon.online {
+  color: #059669;
+}
+
+.statusIcon.offline {
+  color: #dc2626;
+}
+
+.agentActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.actionButton {
+  padding: 0.5rem;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.actionButton:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.actionButton.view {
+  color: #3b82f6;
+}
+
+.actionButton.delete {
+  color: #dc2626;
+}
+
+.actionButton.delete:hover {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.actionIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.agentDetails {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detailLabel {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.detailValue {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.agentToken {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+}
+
+.tokenLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.tokenContainer {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tokenValue {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.75rem;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+  flex: 1;
+  color: #374151;
+  word-break: break-all;
+}
+
+.copyButton {
+  padding: 0.5rem;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.copyButton:hover {
+  background-color: #2563eb;
+}
+
+.copyButton.copied {
+  background-color: #059669;
+}
+
+.copyIcon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modalTitle {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.closeButton {
+  padding: 0.5rem;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: #f1f5f9;
+}
+
+.closeIcon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.input {
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.formActions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.button {
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.button.primary {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.button.primary:hover:not(:disabled) {
+  background-color: #2563eb;
+}
+
+.button.secondary {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #d1d5db;
+}
+
+.button.secondary:hover {
+  background-color: #f1f5f9;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #64748b;
+}
+
+.loadingText {
+  margin-left: 0.5rem;
+}
+
+.empty {
+  text-align: center;
+  padding: 3rem;
+  color: #64748b;
+}
+
+.error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.errorText {
+  color: #b91c1c;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem 0;
+  }
+
+  .header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .agentsList {
+    grid-template-columns: 1fr;
+  }
+
+  .agentDetails {
+    grid-template-columns: 1fr;
+  }
+
+  .modalContent {
+    margin: 1rem;
+    width: calc(100% - 2rem);
+  }
+
+  .formActions {
+    flex-direction: column;
+  }
+} 
