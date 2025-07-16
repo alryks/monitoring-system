@@ -1,9 +1,12 @@
-FROM node:23-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+
+RUN npm cache clean --force
+RUN rm -f package-lock.json
+RUN npm install
 
 COPY . .
 
@@ -15,6 +18,6 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+EXPOSE 3000
 
 CMD ["nginx", "-g", "daemon off;"] 

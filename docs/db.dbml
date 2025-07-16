@@ -1,0 +1,227 @@
+// Схема БД для системы мониторинга
+
+// Таблица пользователей
+Table users {
+  id uuid [pk, default: `gen_random_uuid()`]
+  username varchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  email varchar(255)
+  is_active boolean [not null, default: true]
+  role varchar(50) [not null, default: 'user'] // admin, user
+  created timestamp [not null, default: `now()`]
+  last_login timestamp
+  
+  indexes {
+    username [unique]
+    email
+    is_active
+    role
+  }
+}
+
+// Таблица агентов
+Table agents {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(255) [not null]
+  token varchar(255) [not null, unique]
+  is_active boolean [not null, default: true]
+  created timestamp [not null, default: `now()`]
+  
+  indexes {
+    token [unique]
+    is_active
+  }
+}
+
+// Основная таблица для каждого пинга от агента
+Table agent_pings {
+  id uuid [pk, default: `gen_random_uuid()`]
+  agent_id uuid [ref: > agents.id, not null]
+  created timestamp [not null, default: `now()`]
+  
+  indexes {
+    agent_id
+    created
+    (agent_id, created)
+  }
+}
+
+// Метрики CPU
+Table cpu_metrics {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  cpu_name varchar(50) [not null] // cpu0, cpu1, etc.
+  usage_percent decimal(5,4) [not null] // 0.0000 - 1.0000
+  
+  indexes {
+    ping_id
+    cpu_name
+  }
+}
+
+// Метрики памяти
+Table memory_metrics {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  ram_total_mb bigint [not null]
+  ram_usage_mb bigint [not null]
+  swap_total_mb bigint [not null]
+  swap_usage_mb bigint [not null]
+  
+  indexes {
+    ping_id
+  }
+}
+
+// Метрики дисков
+Table disk_metrics {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  disk_name varchar(50) [not null] // sda, sdb, etc.
+  read_bytes bigint [not null]
+  write_bytes bigint [not null]
+  reads bigint [not null]
+  writes bigint [not null]
+  
+  indexes {
+    ping_id
+    disk_name
+  }
+}
+
+// Метрики сети
+Table network_metrics {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  public_ip inet [not null]
+  sent_bytes bigint [not null]
+  received_bytes bigint [not null]
+  
+  indexes {
+    ping_id
+    public_ip
+  }
+}
+
+// Контейнеры Docker
+Table containers {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  container_id varchar(64) [not null] // Docker container ID
+  name varchar(255) [not null]
+  image_id varchar(64) [not null]
+  status varchar(50) [not null] // running, stopped, etc.
+  restart_count integer [not null, default: 0]
+  created_at timestamp [not null]
+  ip_address inet
+  mac_address varchar(17) // MAC address format
+  cpu_usage_percent decimal(8,6) // CPU usage percentage
+  memory_usage_mb bigint // Memory usage in MB
+  network_sent_bytes bigint
+  network_received_bytes bigint
+  
+  indexes {
+    ping_id
+    container_id
+    name
+    status
+  }
+}
+
+// Сети контейнеров
+Table container_networks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  container_id uuid [ref: > containers.id, not null]
+  network_name varchar(255) [not null]
+  
+  indexes {
+    container_id
+    network_name
+  }
+}
+
+// Тома контейнеров
+Table container_volumes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  container_id uuid [ref: > containers.id, not null]
+  volume_name varchar(255) [not null]
+  
+  indexes {
+    container_id
+    volume_name
+  }
+}
+
+// Логи контейнеров
+Table container_logs {
+  id uuid [pk, default: `gen_random_uuid()`]
+  container_id uuid [ref: > containers.id, not null]
+  log_line text [not null]
+  line_number integer [not null]
+  
+  indexes {
+    container_id
+    line_number
+  }
+}
+
+// Образы Docker
+Table images {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  image_id varchar(64) [not null] // Docker image ID
+  created_at timestamp [not null]
+  size_bytes bigint [not null]
+  architecture varchar(50) [not null, default: 'amd64']
+  
+  indexes {
+    ping_id
+    image_id
+  }
+}
+
+// Теги образов
+Table image_tags {
+  id uuid [pk, default: `gen_random_uuid()`]
+  image_id uuid [ref: > images.id, not null]
+  tag varchar(255) [not null]
+  
+  indexes {
+    image_id
+    tag
+  }
+}
+
+// Тома Docker
+Table volumes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  volume_name varchar(255) [not null]
+  driver varchar(50) [not null]
+  mountpoint varchar(500) [not null]
+  created_at timestamp [not null]
+  
+  indexes {
+    ping_id
+    volume_name
+  }
+}
+
+// Сети Docker
+Table networks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  ping_id uuid [ref: > agent_pings.id, not null]
+  network_id varchar(64) [not null] // Docker network ID
+  name varchar(255) [not null]
+  driver varchar(50) [not null]
+  scope varchar(50) [not null]
+  subnet cidr // CIDR notation
+  gateway inet
+  created_at timestamp [not null]
+  
+  indexes {
+    ping_id
+    network_id
+    name
+  }
+}

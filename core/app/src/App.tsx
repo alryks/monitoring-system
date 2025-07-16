@@ -1,88 +1,118 @@
-import { useState } from 'react'
-import axios from 'axios'
-import './App.css'
-import AgentsPage from './components/AgentsPage'
-import './components/AgentsPage.css'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Agents from './pages/Agents'
+import Containers from './pages/Containers'
+import Images from './pages/Images'
+import Networks from './pages/Networks'
+import Settings from './pages/Settings'
+import AgentDetail from './pages/AgentDetail'
+import ContainerDetail from './pages/ContainerDetail'
+import Layout from './components/Layout'
 
-interface PingResponse {
-  message: string
-  timestamp: string
-  version: string
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { token } = useAuth()
+  
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+  
+  return <>{children}</>
 }
 
-function App() {
-  const [response, setResponse] = useState<PingResponse | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [currentPage, setCurrentPage] = useState('home')
+function AppRoutes() {
+  const { token } = useAuth()
 
-  const testConnection = async () => {
-    setLoading(true)
-    setError(null)
-    setResponse(null)
-
-    try {
-      const result = await axios.get<PingResponse>('/api/ping')
-      setResponse(result.data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Произошла ошибка')
-    } finally {
-      setLoading(false)
-    }
+  if (!token) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    )
   }
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Система мониторинга</h1>
-        <nav>
-          <button onClick={() => setCurrentPage('home')}>Главная</button>
-          <button onClick={() => setCurrentPage('agents')}>Агенты</button>
-        </nav>
-        
-        {currentPage === 'home' && (
-          <div className="connection-test">
-            <h2>Тестирование соединения</h2>
-            <p>Нажмите кнопку ниже, чтобы проверить соединение с API</p>
-            <button 
-              className="test-button"
-              onClick={testConnection} 
-              disabled={loading}
-            >
-              {loading ? 'Тестируем...' : 'Тестировать соединение'}
-            </button>
+    <Layout>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agents" 
+          element={
+            <ProtectedRoute>
+              <Agents />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agents/:id" 
+          element={
+            <ProtectedRoute>
+              <AgentDetail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/containers" 
+          element={
+            <ProtectedRoute>
+              <Containers />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/containers/:id" 
+          element={
+            <ProtectedRoute>
+              <ContainerDetail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/images" 
+          element={
+            <ProtectedRoute>
+              <Images />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/networks" 
+          element={
+            <ProtectedRoute>
+              <Networks />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/login" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </Layout>
+  )
+}
 
-            {error && (
-              <div className="result error">
-                <h3>Ошибка соединения:</h3>
-                <p>{error}</p>
-              </div>
-            )}
-
-            {response && (
-              <div className="result success">
-                <h3>Соединение установлено!</h3>
-                <p><strong>Сообщение:</strong> {response.message}</p>
-                <p><strong>Версия:</strong> {response.version}</p>
-                <p><strong>Время:</strong> {new Date(response.timestamp).toLocaleString()}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </header>
-      
-      <main>
-        {currentPage === 'home' && (
-          <div>
-            <h2>Добро пожаловать в систему мониторинга</h2>
-            <p>Высоконагруженная система управления и балансировки сервисов</p>
-            <p>Используйте навигацию выше для перехода к разным разделам системы</p>
-          </div>
-        )}
-        
-        {currentPage === 'agents' && <AgentsPage />}
-      </main>
-    </div>
+function App() {
+  return (
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   )
 }
 
