@@ -103,10 +103,10 @@ type ContainerNetworkInfo struct {
 }
 
 type ImageInfo struct {
-	ID           string   `json:"id"`
-	Created      string   `json:"created"`
-	Size         int64    `json:"size"`
-	Tags         []string `json:"tags"`
+	ID      string   `json:"id"`
+	Created string   `json:"created"`
+	Size    int64    `json:"size"`
+	Tags    []string `json:"tags"`
 }
 
 type VolumeInfo struct {
@@ -412,10 +412,10 @@ func collectDockerMetrics(ctx context.Context, dockerClient *client.Client) (*Do
 		}
 
 		imageInfos = append(imageInfos, ImageInfo{
-			ID:           strings.TrimPrefix(image.ID, "sha256:"),
-			Created:      time.Unix(image.Created, 0).Format(time.RFC3339Nano),
-			Size:         image.Size,
-			Tags:         tags,
+			ID:      strings.TrimPrefix(image.ID, "sha256:"),
+			Created: time.Unix(image.Created, 0).Format(time.RFC3339Nano),
+			Size:    image.Size,
+			Tags:    tags,
 		})
 	}
 

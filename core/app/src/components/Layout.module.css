@@ -102,6 +102,12 @@
   color: #1e293b;
 }
 
+.userRole {
+  font-size: 0.875rem;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
 .logoutButton {
   display: flex;
   align-items: center;
@@ -128,12 +134,124 @@
 .main {
   flex: 1;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1rem 2rem;
+  flex-shrink: 0;
+}
+
+.headerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.filterLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.filterIcon {
+  width: 1rem;
+  height: 1rem;
+  color: #6b7280;
+}
+
+.select {
+  position: relative;
+  display: inline-block;
+}
+
+.selectInput {
+  appearance: none;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #374151;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  min-width: 160px;
+}
+
+.selectInput:hover {
+  border-color: #9ca3af;
+}
+
+.selectInput:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.selectIcon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.dateInput {
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #374151;
+  transition: border-color 0.2s ease;
+  min-width: 140px;
+}
+
+.dateInput:hover {
+  border-color: #9ca3af;
+}
+
+.dateInput:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.dateSeparator {
+  color: #6b7280;
+  font-weight: 500;
+  margin: 0 0.5rem;
 }
 
 .content {
+  flex: 1;
   padding: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
 }
 
 @media (max-width: 768px) {

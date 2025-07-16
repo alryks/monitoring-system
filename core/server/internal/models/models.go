@@ -91,6 +91,9 @@ type Container struct {
 	MemoryUsageMB        *int64    `json:"memory_usage_mb" db:"memory_usage_mb"`
 	NetworkSentBytes     *int64    `json:"network_sent_bytes" db:"network_sent_bytes"`
 	NetworkReceivedBytes *int64    `json:"network_received_bytes" db:"network_received_bytes"`
+	// Дополнительные поля для совместимости с frontend
+	AgentID   *uuid.UUID `json:"agent_id"`
+	AgentName *string    `json:"agent_name"`
 }
 
 // AgentData представляет данные от агента (соответствует JSON от агента)
@@ -195,20 +198,23 @@ type NetworkDocker struct {
 }
 
 // LoginRequest представляет запрос на вход
+// @Description Запрос на аутентификацию пользователя
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" example:"admin"`
+	Password string `json:"password" example:"admin123"`
 }
 
 // LoginResponse представляет ответ на вход
+// @Description Ответ с JWT токеном и информацией о пользователе
 type LoginResponse struct {
-	Token string `json:"token"`
+	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 	User  User   `json:"user"`
 }
 
 // CreateAgentRequest представляет запрос на создание агента
+// @Description Запрос на создание нового агента мониторинга
 type CreateAgentRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" example:"Production Server 1"`
 }
 
 // DashboardData представляет данные для дашборда
@@ -235,4 +241,305 @@ type SystemOverview struct {
 	TotalRAMMB        int64 `json:"total_ram_mb"`
 	TotalContainers   int   `json:"total_containers"`
 	RunningContainers int   `json:"running_containers"`
+}
+
+// Image представляет Docker образ в БД
+type Image struct {
+	ID           uuid.UUID `json:"id" db:"id"`
+	PingID       uuid.UUID `json:"ping_id" db:"ping_id"`
+	ImageID      string    `json:"image_id" db:"image_id"`
+	Created      time.Time `json:"created" db:"created"`
+	Size         int64     `json:"size" db:"size"`
+	Architecture string    `json:"architecture" db:"architecture"`
+}
+
+// ImageTag представляет тег Docker образа
+type ImageTag struct {
+	ID      uuid.UUID `json:"id" db:"id"`
+	ImageID uuid.UUID `json:"image_id" db:"image_id"`
+	Tag     string    `json:"tag" db:"tag"`
+}
+
+// Volume представляет Docker том
+type Volume struct {
+	ID         uuid.UUID `json:"id" db:"id"`
+	PingID     uuid.UUID `json:"ping_id" db:"ping_id"`
+	Name       string    `json:"name" db:"name"`
+	Created    time.Time `json:"created" db:"created"`
+	Driver     string    `json:"driver" db:"driver"`
+	Mountpoint string    `json:"mountpoint" db:"mountpoint"`
+}
+
+// Network представляет Docker сеть в БД
+type Network struct {
+	ID      uuid.UUID `json:"id" db:"id"`
+	PingID  uuid.UUID `json:"ping_id" db:"ping_id"`
+	NetID   string    `json:"network_id" db:"network_id"`
+	Created time.Time `json:"created" db:"created"`
+	Name    string    `json:"name" db:"name"`
+	Driver  string    `json:"driver" db:"driver"`
+	Scope   string    `json:"scope" db:"scope"`
+	Subnet  *string   `json:"subnet" db:"subnet"`
+	Gateway *string   `json:"gateway" db:"gateway"`
+}
+
+// ContainerVolume представляет связь контейнера с томом
+type ContainerVolume struct {
+	ID          uuid.UUID `json:"id" db:"id"`
+	ContainerID uuid.UUID `json:"container_id" db:"container_id"`
+	VolumeName  string    `json:"volume_name" db:"volume_name"`
+}
+
+// ContainerNetwork представляет связь контейнера с сетью
+type ContainerNetwork struct {
+	ID          uuid.UUID `json:"id" db:"id"`
+	ContainerID uuid.UUID `json:"container_id" db:"container_id"`
+	NetworkName string    `json:"network_name" db:"network_name"`
+}
+
+// ContainerLog представляет лог контейнера
+type ContainerLog struct {
+	ID          uuid.UUID `json:"id" db:"id"`
+	ContainerID uuid.UUID `json:"container_id" db:"container_id"`
+	LogLine     string    `json:"log_line" db:"log_line"`
+	Timestamp   time.Time `json:"timestamp" db:"timestamp"`
+}
+
+// Расширенные модели для API ответов
+
+// ContainerDetail представляет детальную информацию о контейнере
+type ContainerDetail struct {
+	Container
+	Agent    Agent             `json:"agent"`
+	Volumes  []string          `json:"volumes"`
+	Networks []string          `json:"networks"`
+	Logs     []ContainerLog    `json:"logs"`
+	History  []ContainerMetric `json:"history"`
+}
+
+// ContainerMetric представляет историю метрик контейнера
+type ContainerMetric struct {
+	Timestamp   time.Time `json:"timestamp"`
+	CPUUsage    *float64  `json:"cpu_usage"`
+	MemoryUsage *int64    `json:"memory_usage"`
+}
+
+// ImageDetail представляет детальную информацию об образе
+type ImageDetail struct {
+	Image
+	Tags  []string `json:"tags"`
+	Agent Agent    `json:"agent"`
+}
+
+// VolumeDetail представляет детальную информацию о томе
+type VolumeDetail struct {
+	Volume
+	Agent Agent `json:"agent"`
+}
+
+// NetworkDetail представляет детальную информацию о сети
+type NetworkDetail struct {
+	Network
+	Agent Agent `json:"agent"`
+}
+
+// AgentDetail представляет детальную информацию об агенте
+type AgentDetail struct {
+	Agent
+	Metrics       AgentMetrics      `json:"metrics"`
+	Containers    []ContainerDetail `json:"containers"`
+	Images        []ImageDetail     `json:"images"`
+	Volumes       []VolumeDetail    `json:"volumes"`
+	Networks      []NetworkDetail   `json:"networks"`
+	SystemMetrics []SystemMetric    `json:"system_metrics"`
+}
+
+// AgentMetrics представляет текущие метрики агента
+type AgentMetrics struct {
+	CPU     []CPUMetricCurrent   `json:"cpu"`
+	Memory  MemoryMetricCurrent  `json:"memory"`
+	Disk    []DiskMetricCurrent  `json:"disk"`
+	Network NetworkMetricCurrent `json:"network"`
+}
+
+// CPUMetricCurrent представляет текущую метрику CPU
+type CPUMetricCurrent struct {
+	Name  string  `json:"name"`
+	Usage float64 `json:"usage"`
+}
+
+// MemoryMetricCurrent представляет текущую метрику памяти
+type MemoryMetricCurrent struct {
+	RAMTotal    int64   `json:"ram_total"`
+	RAMUsage    int64   `json:"ram_usage"`
+	RAMPercent  float64 `json:"ram_percent"`
+	SwapTotal   int64   `json:"swap_total"`
+	SwapUsage   int64   `json:"swap_usage"`
+	SwapPercent float64 `json:"swap_percent"`
+}
+
+// DiskMetricCurrent представляет текущую метрику диска
+type DiskMetricCurrent struct {
+	Name       string `json:"name"`
+	ReadBytes  int64  `json:"read_bytes"`
+	WriteBytes int64  `json:"write_bytes"`
+	ReadSpeed  int64  `json:"read_speed"`
+	WriteSpeed int64  `json:"write_speed"`
+}
+
+// NetworkMetricCurrent представляет текущую метрику сети
+type NetworkMetricCurrent struct {
+	PublicIP      string `json:"public_ip"`
+	SentBytes     int64  `json:"sent_bytes"`
+	ReceivedBytes int64  `json:"received_bytes"`
+	SentSpeed     int64  `json:"sent_speed"`
+	ReceivedSpeed int64  `json:"received_speed"`
+}
+
+// SystemMetric представляет историческую метрику системы
+type SystemMetric struct {
+	Timestamp time.Time `json:"timestamp"`
+	CPUUsage  float64   `json:"cpu_usage"`
+	RAMUsage  float64   `json:"ram_usage"`
+	PublicIP  string    `json:"public_ip"`
+}
+
+// ContainerListResponse представляет ответ со списком контейнеров
+type ContainerListResponse struct {
+	Containers []ContainerDetail `json:"containers"`
+	Total      int               `json:"total"`
+}
+
+// ImageListResponse представляет ответ со списком образов
+type ImageListResponse struct {
+	Images []ImageDetail `json:"images"`
+	Total  int           `json:"total"`
+}
+
+// VolumeListResponse представляет ответ со списком томов
+type VolumeListResponse struct {
+	Volumes []VolumeDetail `json:"volumes"`
+	Total   int            `json:"total"`
+}
+
+// NetworkListResponse представляет ответ со списком сетей
+type NetworkListResponse struct {
+	Networks []NetworkDetail `json:"networks"`
+	Total    int             `json:"total"`
+}
+
+// TopContainer представляет контейнер в топе по ресурсам
+type TopContainer struct {
+	Name        string  `json:"name"`
+	AgentName   string  `json:"agent_name"`
+	CPUUsage    float64 `json:"cpu_usage"`
+	MemoryUsage int64   `json:"memory_usage"`
+	Status      string  `json:"status"`
+}
+
+// DashboardMetrics представляет расширенные метрики для дашборда
+type DashboardMetrics struct {
+	TotalContainers   int            `json:"total_containers"`
+	RunningContainers int            `json:"running_containers"`
+	StoppedContainers int            `json:"stopped_containers"`
+	AverageCPUUsage   float64        `json:"average_cpu_usage"`
+	AverageRAMUsage   float64        `json:"average_ram_usage"`
+	NetworkTraffic    NetworkTraffic `json:"network_traffic"`
+	TopContainersCPU  []TopContainer `json:"top_containers_cpu"`
+	TopContainersRAM  []TopContainer `json:"top_containers_ram"`
+}
+
+// NetworkTraffic представляет сетевой трафик
+type NetworkTraffic struct {
+	SentSpeed     int64 `json:"sent_speed"`
+	ReceivedSpeed int64 `json:"received_speed"`
+}
+
+// KPIMetrics представляет основные KPI метрики
+type KPIMetrics struct {
+	AgentsOnline      int     `json:"agents_online"`
+	AgentsTotal       int     `json:"agents_total"`
+	ContainersRunning int     `json:"containers_running"`
+	ContainersStopped int     `json:"containers_stopped"`
+	ContainersTotal   int     `json:"containers_total"`
+	AvgCPUUsage       float64 `json:"avg_cpu_usage"`
+	AvgMemoryUsage    float64 `json:"avg_memory_usage"`
+}
+
+// ResourceUsagePoint представляет точку использования ресурсов
+type ResourceUsagePoint struct {
+	Timestamp time.Time `json:"timestamp"`
+	CPU       float64   `json:"cpu"`
+	Memory    float64   `json:"memory"`
+}
+
+// NetworkActivityPoint представляет точку сетевой активности
+type NetworkActivityPoint struct {
+	Timestamp time.Time `json:"timestamp"`
+	Sent      int64     `json:"sent"`
+	Received  int64     `json:"received"`
+}
+
+// AgentSummary представляет сводку по агенту
+type AgentSummary struct {
+	ID          uuid.UUID  `json:"id"`
+	Name        string     `json:"name"`
+	Status      string     `json:"status"`
+	LastPing    *time.Time `json:"last_ping"`
+	Containers  int        `json:"containers"`
+	CPUUsage    float64    `json:"cpu_usage"`
+	MemoryUsage float64    `json:"memory_usage"`
+}
+
+// DashboardExtended представляет расширенные данные дашборда
+type DashboardExtended struct {
+	Kpis                KPIMetrics             `json:"kpis"`
+	ResourceUsage       []ResourceUsagePoint   `json:"resource_usage"`
+	NetworkActivity     []NetworkActivityPoint `json:"network_activity"`
+	TopContainersCPU    []TopContainer         `json:"top_containers_cpu"`
+	TopContainersMemory []TopContainer         `json:"top_containers_memory"`
+	AgentsSummary       []AgentSummary         `json:"agents_summary"`
+}
+
+// TimeRange представляет временной диапазон
+type TimeRange struct {
+	From time.Time `json:"from"`
+	To   time.Time `json:"to"`
+}
+
+// FilterOptions представляет опции фильтрации
+type FilterOptions struct {
+	AgentID   *uuid.UUID `json:"agent_id"`
+	TimeRange *TimeRange `json:"time_range"`
+	Status    *string    `json:"status"`
+	Search    *string    `json:"search"`
+}
+
+// PaginationOptions представляет опции пагинации
+type PaginationOptions struct {
+	Page     int `json:"page"`
+	PageSize int `json:"page_size"`
+}
+
+// ListRequest представляет запрос на получение списка с фильтрацией
+type ListRequest struct {
+	Filter     FilterOptions     `json:"filter"`
+	Pagination PaginationOptions `json:"pagination"`
+}
+
+// UpdateAgentRequest представляет запрос на обновление агента
+type UpdateAgentRequest struct {
+	Name *string `json:"name"`
+}
+
+// ErrorResponse представляет ответ с ошибкой
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+}
+
+// SuccessResponse представляет успешный ответ
+type SuccessResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }

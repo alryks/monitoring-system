@@ -1,0 +1,1174 @@
+basePath: /api
+definitions:
+  models.Agent:
+    properties:
+      created:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_ping:
+        type: string
+      name:
+        type: string
+      public_ip:
+        type: string
+      status:
+        description: online, offline, unknown
+        type: string
+      token:
+        type: string
+    type: object
+  models.AgentData:
+    properties:
+      docker:
+        $ref: '#/definitions/models.DockerInfo'
+      metrics:
+        $ref: '#/definitions/models.Metrics'
+    type: object
+  models.AgentDetail:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.ContainerDetail'
+        type: array
+      created:
+        type: string
+      id:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/models.ImageDetail'
+        type: array
+      is_active:
+        type: boolean
+      last_ping:
+        type: string
+      metrics:
+        $ref: '#/definitions/models.AgentMetrics'
+      name:
+        type: string
+      networks:
+        items:
+          $ref: '#/definitions/models.NetworkDetail'
+        type: array
+      public_ip:
+        type: string
+      status:
+        description: online, offline, unknown
+        type: string
+      system_metrics:
+        items:
+          $ref: '#/definitions/models.SystemMetric'
+        type: array
+      token:
+        type: string
+      volumes:
+        items:
+          $ref: '#/definitions/models.VolumeDetail'
+        type: array
+    type: object
+  models.AgentMetrics:
+    properties:
+      cpu:
+        items:
+          $ref: '#/definitions/models.CPUMetricCurrent'
+        type: array
+      disk:
+        items:
+          $ref: '#/definitions/models.DiskMetricCurrent'
+        type: array
+      memory:
+        $ref: '#/definitions/models.MemoryMetricCurrent'
+      network:
+        $ref: '#/definitions/models.NetworkMetricCurrent'
+    type: object
+  models.CPUInfo:
+    properties:
+      name:
+        type: string
+      usage:
+        type: number
+    type: object
+  models.CPUMetricCurrent:
+    properties:
+      name:
+        type: string
+      usage:
+        type: number
+    type: object
+  models.Container:
+    properties:
+      agent_id:
+        description: Дополнительные поля для совместимости с frontend
+        type: string
+      agent_name:
+        type: string
+      container_id:
+        type: string
+      cpu_usage_percent:
+        type: number
+      created_at:
+        type: string
+      id:
+        type: string
+      image_id:
+        type: string
+      ip_address:
+        type: string
+      mac_address:
+        type: string
+      memory_usage_mb:
+        type: integer
+      name:
+        type: string
+      network_received_bytes:
+        type: integer
+      network_sent_bytes:
+        type: integer
+      ping_id:
+        type: string
+      restart_count:
+        type: integer
+      status:
+        type: string
+    type: object
+  models.ContainerDetail:
+    properties:
+      agent:
+        $ref: '#/definitions/models.Agent'
+      agent_id:
+        description: Дополнительные поля для совместимости с frontend
+        type: string
+      agent_name:
+        type: string
+      container_id:
+        type: string
+      cpu_usage_percent:
+        type: number
+      created_at:
+        type: string
+      history:
+        items:
+          $ref: '#/definitions/models.ContainerMetric'
+        type: array
+      id:
+        type: string
+      image_id:
+        type: string
+      ip_address:
+        type: string
+      logs:
+        items:
+          $ref: '#/definitions/models.ContainerLog'
+        type: array
+      mac_address:
+        type: string
+      memory_usage_mb:
+        type: integer
+      name:
+        type: string
+      network_received_bytes:
+        type: integer
+      network_sent_bytes:
+        type: integer
+      networks:
+        items:
+          type: string
+        type: array
+      ping_id:
+        type: string
+      restart_count:
+        type: integer
+      status:
+        type: string
+      volumes:
+        items:
+          type: string
+        type: array
+    type: object
+  models.ContainerInfo:
+    properties:
+      cpu:
+        type: number
+      created:
+        type: string
+      id:
+        type: string
+      image:
+        type: string
+      ip:
+        type: string
+      logs:
+        items:
+          type: string
+        type: array
+      mac:
+        type: string
+      memory:
+        type: integer
+      name:
+        type: string
+      network:
+        $ref: '#/definitions/models.ContainerNetworkInfo'
+      restart_count:
+        type: integer
+      status:
+        type: string
+      volumes:
+        items:
+          type: string
+        type: array
+    type: object
+  models.ContainerListResponse:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.ContainerDetail'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.ContainerLog:
+    properties:
+      container_id:
+        type: string
+      id:
+        type: string
+      log_line:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  models.ContainerMetric:
+    properties:
+      cpu_usage:
+        type: number
+      memory_usage:
+        type: integer
+      timestamp:
+        type: string
+    type: object
+  models.ContainerNetworkInfo:
+    properties:
+      networks:
+        items:
+          type: string
+        type: array
+      received:
+        type: integer
+      sent:
+        type: integer
+    type: object
+  models.CreateAgentRequest:
+    description: Запрос на создание нового агента мониторинга
+    properties:
+      name:
+        example: Production Server 1
+        type: string
+    type: object
+  models.DashboardData:
+    properties:
+      agents:
+        items:
+          $ref: '#/definitions/models.Agent'
+        type: array
+      offline_agents:
+        type: integer
+      online_agents:
+        type: integer
+      recent_metrics:
+        items:
+          $ref: '#/definitions/models.RecentMetric'
+        type: array
+      system_overview:
+        $ref: '#/definitions/models.SystemOverview'
+      total_agents:
+        type: integer
+    type: object
+  models.DiskInfo:
+    properties:
+      name:
+        type: string
+      read_bytes:
+        type: integer
+      reads:
+        type: integer
+      write_bytes:
+        type: integer
+      writes:
+        type: integer
+    type: object
+  models.DiskMetricCurrent:
+    properties:
+      name:
+        type: string
+      read_bytes:
+        type: integer
+      read_speed:
+        type: integer
+      write_bytes:
+        type: integer
+      write_speed:
+        type: integer
+    type: object
+  models.DockerInfo:
+    properties:
+      containers:
+        items:
+          $ref: '#/definitions/models.ContainerInfo'
+        type: array
+      images:
+        items:
+          $ref: '#/definitions/models.ImageInfo'
+        type: array
+      networks:
+        items:
+          $ref: '#/definitions/models.NetworkDocker'
+        type: array
+      volumes:
+        items:
+          $ref: '#/definitions/models.VolumeInfo'
+        type: array
+    type: object
+  models.ImageDetail:
+    properties:
+      agent:
+        $ref: '#/definitions/models.Agent'
+      architecture:
+        type: string
+      created:
+        type: string
+      id:
+        type: string
+      image_id:
+        type: string
+      ping_id:
+        type: string
+      size:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  models.ImageInfo:
+    properties:
+      architecture:
+        type: string
+      created:
+        type: string
+      id:
+        type: string
+      size:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+    type: object
+  models.ImageListResponse:
+    properties:
+      images:
+        items:
+          $ref: '#/definitions/models.ImageDetail'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.LoginRequest:
+    description: Запрос на аутентификацию пользователя
+    properties:
+      password:
+        example: admin123
+        type: string
+      username:
+        example: admin
+        type: string
+    type: object
+  models.LoginResponse:
+    description: Ответ с JWT токеном и информацией о пользователе
+    properties:
+      token:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+    type: object
+  models.MemoryInfo:
+    properties:
+      ram:
+        $ref: '#/definitions/models.RAMInfo'
+      swap:
+        $ref: '#/definitions/models.SwapInfo'
+    type: object
+  models.MemoryMetricCurrent:
+    properties:
+      ram_percent:
+        type: number
+      ram_total:
+        type: integer
+      ram_usage:
+        type: integer
+      swap_percent:
+        type: number
+      swap_total:
+        type: integer
+      swap_usage:
+        type: integer
+    type: object
+  models.Metrics:
+    properties:
+      cpu:
+        items:
+          $ref: '#/definitions/models.CPUInfo'
+        type: array
+      disk:
+        items:
+          $ref: '#/definitions/models.DiskInfo'
+        type: array
+      memory:
+        $ref: '#/definitions/models.MemoryInfo'
+      network:
+        $ref: '#/definitions/models.NetworkInfo'
+    type: object
+  models.NetworkDetail:
+    properties:
+      agent:
+        $ref: '#/definitions/models.Agent'
+      created:
+        type: string
+      driver:
+        type: string
+      gateway:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      network_id:
+        type: string
+      ping_id:
+        type: string
+      scope:
+        type: string
+      subnet:
+        type: string
+    type: object
+  models.NetworkDocker:
+    properties:
+      created:
+        type: string
+      driver:
+        type: string
+      gateway:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      scope:
+        type: string
+      subnet:
+        type: string
+    type: object
+  models.NetworkInfo:
+    properties:
+      public_ip:
+        type: string
+      received:
+        type: integer
+      sent:
+        type: integer
+    type: object
+  models.NetworkListResponse:
+    properties:
+      networks:
+        items:
+          $ref: '#/definitions/models.NetworkDetail'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.NetworkMetricCurrent:
+    properties:
+      public_ip:
+        type: string
+      received_bytes:
+        type: integer
+      received_speed:
+        type: integer
+      sent_bytes:
+        type: integer
+      sent_speed:
+        type: integer
+    type: object
+  models.RAMInfo:
+    properties:
+      total:
+        type: integer
+      usage:
+        type: integer
+    type: object
+  models.RecentMetric:
+    properties:
+      agent_id:
+        type: string
+      agent_name:
+        type: string
+      cpu_usage:
+        type: number
+      public_ip:
+        type: string
+      ram_usage:
+        type: number
+      timestamp:
+        type: string
+    type: object
+  models.SwapInfo:
+    properties:
+      total:
+        type: integer
+      usage:
+        type: integer
+    type: object
+  models.SystemMetric:
+    properties:
+      cpu_usage:
+        type: number
+      public_ip:
+        type: string
+      ram_usage:
+        type: number
+      timestamp:
+        type: string
+    type: object
+  models.SystemOverview:
+    properties:
+      running_containers:
+        type: integer
+      total_containers:
+        type: integer
+      total_cpu_cores:
+        type: integer
+      total_ram_mb:
+        type: integer
+    type: object
+  models.User:
+    properties:
+      created:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_login:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+  models.VolumeDetail:
+    properties:
+      agent:
+        $ref: '#/definitions/models.Agent'
+      created:
+        type: string
+      driver:
+        type: string
+      id:
+        type: string
+      mountpoint:
+        type: string
+      name:
+        type: string
+      ping_id:
+        type: string
+    type: object
+  models.VolumeInfo:
+    properties:
+      created:
+        type: string
+      driver:
+        type: string
+      mountpoint:
+        type: string
+      name:
+        type: string
+    type: object
+  models.VolumeListResponse:
+    properties:
+      total:
+        type: integer
+      volumes:
+        items:
+          $ref: '#/definitions/models.VolumeDetail'
+        type: array
+    type: object
+host: localhost:8000
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API для системы мониторинга Docker контейнеров
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Docker Monitoring System API
+  version: "1.0"
+paths:
+  /agent/ping:
+    post:
+      consumes:
+      - application/json
+      description: Получает данные мониторинга от агента и сохраняет их в базе данных
+      parameters:
+      - description: Bearer токен агента
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Данные мониторинга от агента
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.AgentData'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные успешно сохранены
+          schema:
+            type: string
+        "400":
+          description: Неверные данные
+          schema:
+            type: string
+        "401":
+          description: Неверный токен агента
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Пинг от агента
+      tags:
+      - agent-data
+  /agents:
+    get:
+      description: Возвращает список всех активных агентов
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список агентов
+          schema:
+            items:
+              $ref: '#/definitions/models.Agent'
+            type: array
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список агентов
+      tags:
+      - agents
+    post:
+      consumes:
+      - application/json
+      description: Создает нового агента мониторинга и возвращает токен для подключения
+      parameters:
+      - description: Данные для создания агента
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateAgentRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Созданный агент
+          schema:
+            $ref: '#/definitions/models.Agent'
+        "400":
+          description: Неверные данные
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать нового агента
+      tags:
+      - agents
+  /agents/{id}:
+    delete:
+      description: Удаляет агента из системы мониторинга
+      parameters:
+      - description: ID агента
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Агент успешно удален
+          schema:
+            type: string
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить агента
+      tags:
+      - agents
+    get:
+      description: Возвращает полную информацию об агенте включая метрики, контейнеры,
+        образы и т.д.
+      parameters:
+      - description: ID агента
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Детальная информация об агенте
+          schema:
+            $ref: '#/definitions/models.AgentDetail'
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "404":
+          description: Агент не найден
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить детальную информацию об агенте
+      tags:
+      - agents
+    put:
+      consumes:
+      - application/json
+      description: Обновляет имя и статус активности агента
+      parameters:
+      - description: ID агента
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Поля для обновления
+        in: body
+        name: request
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Агент успешно обновлен
+          schema:
+            type: string
+        "400":
+          description: Неверные данные
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновить агента
+      tags:
+      - agents
+  /agents/{id}/containers:
+    get:
+      description: Возвращает список контейнеров на конкретном агенте
+      parameters:
+      - description: ID агента
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список контейнеров агента
+          schema:
+            items:
+              $ref: '#/definitions/models.Container'
+            type: array
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить контейнеры агента
+      tags:
+      - agents
+  /agents/{id}/metrics:
+    get:
+      description: Возвращает историю метрик агента (CPU, память, сеть)
+      parameters:
+      - description: ID агента
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Лимит записей (по умолчанию 50)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: История метрик агента
+          schema:
+            items:
+              type: object
+            type: array
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить метрики агента
+      tags:
+      - agents
+  /containers:
+    get:
+      description: Возвращает список всех контейнеров с фильтрацией
+      parameters:
+      - description: ID агента для фильтрации
+        in: query
+        name: agent_id
+        type: string
+      - description: Статус для фильтрации
+        in: query
+        name: status
+        type: string
+      - description: Поиск по имени или образу
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список контейнеров
+          schema:
+            $ref: '#/definitions/models.ContainerListResponse'
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список контейнеров
+      tags:
+      - containers
+  /containers/{id}:
+    get:
+      description: Возвращает полную информацию о контейнере включая метрики и историю
+      parameters:
+      - description: ID контейнера
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Детальная информация о контейнере
+          schema:
+            $ref: '#/definitions/models.ContainerDetail'
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "404":
+          description: Контейнер не найден
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить детальную информацию о контейнере
+      tags:
+      - containers
+  /containers/{id}/logs:
+    get:
+      description: Возвращает последние логи контейнера (до 100 записей)
+      parameters:
+      - description: ID контейнера
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Логи контейнера
+          schema:
+            items:
+              $ref: '#/definitions/models.ContainerLog'
+            type: array
+        "400":
+          description: Неверный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить логи контейнера
+      tags:
+      - containers
+  /dashboard:
+    get:
+      description: Возвращает KPI метрики, графики использования ресурсов и топ контейнеры
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Данные дашборда
+          schema:
+            $ref: '#/definitions/models.DashboardData'
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить данные дашборда
+      tags:
+      - dashboard
+  /images:
+    get:
+      description: Возвращает список всех Docker образов с фильтрацией
+      parameters:
+      - description: ID агента для фильтрации
+        in: query
+        name: agent_id
+        type: string
+      - description: Поиск по ID образа или тегу
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список образов
+          schema:
+            $ref: '#/definitions/models.ImageListResponse'
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список Docker образов
+      tags:
+      - images
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Выполняет вход в систему и возвращает JWT токен
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация
+          schema:
+            $ref: '#/definitions/models.LoginResponse'
+        "400":
+          description: Неверный JSON
+          schema:
+            type: string
+        "401":
+          description: Неверные учетные данные
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Аутентификация пользователя
+      tags:
+      - auth
+  /networks:
+    get:
+      description: Возвращает список всех Docker сетей с фильтрацией
+      parameters:
+      - description: ID агента для фильтрации
+        in: query
+        name: agent_id
+        type: string
+      - description: Поиск по имени сети
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список сетей
+          schema:
+            $ref: '#/definitions/models.NetworkListResponse'
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список сетей
+      tags:
+      - networks
+  /volumes:
+    get:
+      description: Возвращает список всех Docker томов с фильтрацией
+      parameters:
+      - description: ID агента для фильтрации
+        in: query
+        name: agent_id
+        type: string
+      - description: Поиск по имени тома
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список томов
+          schema:
+            $ref: '#/definitions/models.VolumeListResponse'
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить список томов
+      tags:
+      - volumes
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

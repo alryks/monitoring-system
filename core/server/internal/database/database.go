@@ -180,20 +180,20 @@ func createTables(db *sql.DB) error {
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 			container_id uuid NOT NULL REFERENCES containers(id) ON DELETE CASCADE,
 			log_line text NOT NULL,
-			line_number integer NOT NULL
+			timestamp timestamp NOT NULL DEFAULT now()
 		);`,
 
 		// Индексы для container_logs
 		`CREATE INDEX IF NOT EXISTS idx_container_logs_container_id ON container_logs(container_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_container_logs_line_number ON container_logs(line_number);`,
+		`CREATE INDEX IF NOT EXISTS idx_container_logs_timestamp ON container_logs(timestamp);`,
 
 		// Таблица образов
 		`CREATE TABLE IF NOT EXISTS images (
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 			ping_id uuid NOT NULL REFERENCES agent_pings(id) ON DELETE CASCADE,
 			image_id varchar(64) NOT NULL,
-			created_at timestamp NOT NULL,
-			size_bytes bigint NOT NULL,
+			created timestamp NOT NULL,
+			size bigint NOT NULL,
 			architecture varchar(50) NOT NULL DEFAULT 'amd64'
 		);`,
 
@@ -216,15 +216,15 @@ func createTables(db *sql.DB) error {
 		`CREATE TABLE IF NOT EXISTS volumes (
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 			ping_id uuid NOT NULL REFERENCES agent_pings(id) ON DELETE CASCADE,
-			volume_name varchar(255) NOT NULL,
+			name varchar(255) NOT NULL,
 			driver varchar(50) NOT NULL,
 			mountpoint varchar(500) NOT NULL,
-			created_at timestamp NOT NULL
+			created timestamp NOT NULL
 		);`,
 
 		// Индексы для volumes
 		`CREATE INDEX IF NOT EXISTS idx_volumes_ping_id ON volumes(ping_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_volumes_volume_name ON volumes(volume_name);`,
+		`CREATE INDEX IF NOT EXISTS idx_volumes_name ON volumes(name);`,
 
 		// Таблица сетей
 		`CREATE TABLE IF NOT EXISTS networks (
@@ -236,7 +236,7 @@ func createTables(db *sql.DB) error {
 			scope varchar(50) NOT NULL,
 			subnet cidr,
 			gateway inet,
-			created_at timestamp NOT NULL
+			created timestamp NOT NULL
 		);`,
 
 		// Индексы для networks

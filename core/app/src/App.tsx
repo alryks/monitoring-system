@@ -3,6 +3,12 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Agents from './pages/Agents'
+import Containers from './pages/Containers'
+import Images from './pages/Images'
+import Networks from './pages/Networks'
+import Settings from './pages/Settings'
+import AgentDetail from './pages/AgentDetail'
+import ContainerDetail from './pages/ContainerDetail'
 import Layout from './components/Layout'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,6 +50,54 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Agents />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/agents/:id" 
+          element={
+            <ProtectedRoute>
+              <AgentDetail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/containers" 
+          element={
+            <ProtectedRoute>
+              <Containers />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/containers/:id" 
+          element={
+            <ProtectedRoute>
+              <ContainerDetail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/images" 
+          element={
+            <ProtectedRoute>
+              <Images />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/networks" 
+          element={
+            <ProtectedRoute>
+              <Networks />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           } 
         />

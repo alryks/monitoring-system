@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { 
   Plus, 
   Trash2, 
@@ -15,6 +16,7 @@ import { agentsApi, type Agent } from '../services/api'
 import styles from './Agents.module.css'
 
 export default function Agents() {
+  const navigate = useNavigate()
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -91,6 +93,10 @@ export default function Agents() {
     setShowTokenModal(true)
   }
 
+  const handleAgentClick = (agentId: string) => {
+    navigate(`/agents/${agentId}`)
+  }
+
   if (loading && (!Array.isArray(agents) || agents.length === 0)) {
     return (
       <div className={styles.loading}>
@@ -128,7 +134,11 @@ export default function Agents() {
       ) : (
         <div className={styles.agentsList}>
           {(Array.isArray(agents) ? agents : []).map((agent) => (
-            <div key={agent.id} className={styles.agentCard}>
+            <div 
+              key={agent.id} 
+              className={`${styles.agentCard} ${styles.clickable}`}
+              onClick={() => handleAgentClick(agent.id)}
+            >
               <div className={styles.agentHeader}>
                 <div className={styles.agentInfo}>
                   <div className={styles.agentName}>{agent.name}</div>
@@ -143,14 +153,20 @@ export default function Agents() {
                 </div>
                 <div className={styles.agentActions}>
                   <button
-                    onClick={() => handleViewToken(agent)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleViewToken(agent)
+                    }}
                     className={`${styles.actionButton} ${styles.view}`}
                     title="Показать токен"
                   >
                     <Eye className={styles.actionIcon} />
                   </button>
                   <button
-                    onClick={() => handleDeleteAgent(agent)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteAgent(agent)
+                    }}
                     className={`${styles.actionButton} ${styles.delete}`}
                     title="Удалить агента"
                   >

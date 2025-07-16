@@ -5,18 +5,37 @@ import {
   LogOut, 
   User,
   Activity,
-  Server
+  Server,
+  Container,
+  Package,
+  Network,
+  Settings,
 } from 'lucide-react'
 import styles from './Layout.module.css'
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+interface LayoutProps {
+  children: React.ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const location = useLocation()
 
   const navigation = [
     { name: 'Дашборд', href: '/dashboard', icon: Monitor },
     { name: 'Агенты', href: '/agents', icon: Server },
+    { name: 'Контейнеры', href: '/containers', icon: Container },
+    { name: 'Образы', href: '/images', icon: Package },
+    { name: 'Сети и Тома', href: '/networks', icon: Network },
+    { name: 'Настройки', href: '/settings', icon: Settings, adminOnly: true },
   ]
+
+  const filteredNavigation = navigation.filter(item => {
+    if (item.adminOnly && user?.role !== 'admin') {
+      return false
+    }
+    return true
+  })
 
   return (
     <div className={styles.layout}>
@@ -32,7 +51,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {/* Navigation */}
         <nav className={styles.nav}>
           <ul className={styles.navList}>
-            {navigation.map((item) => {
+            {filteredNavigation.map((item) => {
               const Icon = item.icon
               const isActive = location.pathname === item.href
               
@@ -59,6 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
             <div>
               <div className={styles.userName}>{user?.username}</div>
+              <div className={styles.userRole}>{user?.role}</div>
             </div>
           </div>
           <button
@@ -74,10 +94,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className={styles.main}>
-        <main>
-          <div className={styles.content}>
-            {children}
-          </div>
+        <main className={styles.content}>
+          {children}
         </main>
       </div>
     </div>
