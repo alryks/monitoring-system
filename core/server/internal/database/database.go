@@ -24,6 +24,11 @@ func Connect(databaseURL string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to create tables: %w", err)
 	}
 
+	// Выполняем миграции
+	if err := runMigrations(db); err != nil {
+		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	}
+
 	return db, nil
 }
 
@@ -57,7 +62,8 @@ func createTables(db *sql.DB) error {
 			name varchar(255) NOT NULL,
 			token varchar(255) NOT NULL UNIQUE,
 			is_active boolean NOT NULL DEFAULT true,
-			created timestamp NOT NULL DEFAULT now()
+			created timestamp NOT NULL DEFAULT now(),
+			last_ping timestamp
 		);`,
 
 		// Индексы для agents
@@ -153,28 +159,6 @@ func createTables(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_containers_name ON containers(name);`,
 		`CREATE INDEX IF NOT EXISTS idx_containers_status ON containers(status);`,
 
-		// Таблица сетей контейнеров
-		`CREATE TABLE IF NOT EXISTS container_networks (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			container_id uuid NOT NULL REFERENCES containers(id) ON DELETE CASCADE,
-			network_name varchar(255) NOT NULL
-		);`,
-
-		// Индексы для container_networks
-		`CREATE INDEX IF NOT EXISTS idx_container_networks_container_id ON container_networks(container_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_container_networks_network_name ON container_networks(network_name);`,
-
-		// Таблица томов контейнеров
-		`CREATE TABLE IF NOT EXISTS container_volumes (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			container_id uuid NOT NULL REFERENCES containers(id) ON DELETE CASCADE,
-			volume_name varchar(255) NOT NULL
-		);`,
-
-		// Индексы для container_volumes
-		`CREATE INDEX IF NOT EXISTS idx_container_volumes_container_id ON container_volumes(container_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_container_volumes_volume_name ON container_volumes(volume_name);`,
-
 		// Таблица логов контейнеров
 		`CREATE TABLE IF NOT EXISTS container_logs (
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -212,37 +196,23 @@ func createTables(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_image_tags_image_id ON image_tags(image_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_image_tags_tag ON image_tags(tag);`,
 
-		// Таблица томов
-		`CREATE TABLE IF NOT EXISTS volumes (
+		// Таблица действий
+		`CREATE TABLE IF NOT EXISTS actions (
 			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			ping_id uuid NOT NULL REFERENCES agent_pings(id) ON DELETE CASCADE,
-			name varchar(255) NOT NULL,
-			driver varchar(50) NOT NULL,
-			mountpoint varchar(500) NOT NULL,
-			created timestamp NOT NULL
+			agent_id uuid NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+			type varchar(100) NOT NULL,
+			payload jsonb NOT NULL,
+			status varchar(20) NOT NULL DEFAULT 'pending',
+			created timestamp NOT NULL DEFAULT now(),
+			completed timestamp,
+			response text,
+			error text
 		);`,
 
-		// Индексы для volumes
-		`CREATE INDEX IF NOT EXISTS idx_volumes_ping_id ON volumes(ping_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_volumes_name ON volumes(name);`,
-
-		// Таблица сетей
-		`CREATE TABLE IF NOT EXISTS networks (
-			id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-			ping_id uuid NOT NULL REFERENCES agent_pings(id) ON DELETE CASCADE,
-			network_id varchar(64) NOT NULL,
-			name varchar(255) NOT NULL,
-			driver varchar(50) NOT NULL,
-			scope varchar(50) NOT NULL,
-			subnet cidr,
-			gateway inet,
-			created timestamp NOT NULL
-		);`,
-
-		// Индексы для networks
-		`CREATE INDEX IF NOT EXISTS idx_networks_ping_id ON networks(ping_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_networks_network_id ON networks(network_id);`,
-		`CREATE INDEX IF NOT EXISTS idx_networks_name ON networks(name);`,
+		// Индексы для actions
+		`CREATE INDEX IF NOT EXISTS idx_actions_agent_id ON actions(agent_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_actions_status ON actions(status);`,
+		`CREATE INDEX IF NOT EXISTS idx_actions_created ON actions(created DESC);`,
 	}
 
 	for _, query := range queries {
@@ -252,5 +222,24 @@ func createTables(db *sql.DB) error {
 	}
 
 	log.Println("Database tables created successfully")
+	return nil
+}
+
+// runMigrations выполняет миграции базы данных
+func runMigrations(db *sql.DB) error {
+	migrations := []string{
+		// Миграция 002: добавление колонки last_ping в таблицу agents
+		`ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_ping timestamp;`,
+		`CREATE INDEX IF NOT EXISTS idx_agents_last_ping ON agents(last_ping);`,
+		`CREATE INDEX IF NOT EXISTS idx_agents_active_last_ping ON agents(is_active, last_ping);`,
+	}
+
+	for _, migration := range migrations {
+		if _, err := db.Exec(migration); err != nil {
+			return fmt.Errorf("failed to execute migration: %s, error: %w", migration, err)
+		}
+	}
+
+	log.Println("Database migrations completed successfully")
 	return nil
 }

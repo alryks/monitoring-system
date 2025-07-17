@@ -6,7 +6,8 @@ import Agents from './pages/Agents'
 import Containers from './pages/Containers'
 import Images from './pages/Images'
 import Networks from './pages/Networks'
-import Settings from './pages/Settings'
+import Notifications from './pages/Notifications'
+import Actions from './pages/Actions'
 import AgentDetail from './pages/AgentDetail'
 import ContainerDetail from './pages/ContainerDetail'
 import Layout from './components/Layout'
@@ -86,6 +87,14 @@ function AppRoutes() {
           } 
         />
         <Route 
+          path="/actions" 
+          element={
+            <ProtectedRoute>
+              <Actions />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
           path="/networks" 
           element={
             <ProtectedRoute>
@@ -94,10 +103,10 @@ function AppRoutes() {
           } 
         />
         <Route 
-          path="/settings" 
+          path="/notifications" 
           element={
             <ProtectedRoute>
-              <Settings />
+              <Notifications />
             </ProtectedRoute>
           } 
         />

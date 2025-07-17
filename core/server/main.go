@@ -20,6 +20,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -51,6 +52,19 @@ func main() {
 	// Инициализируем обработчики
 	h := handlers.New(db, authService)
 
+	// Запускаем периодическую проверку недоступных агентов
+	go func() {
+		ticker := time.NewTicker(30 * time.Second) // Проверяем каждые 30 секунд
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				h.CheckOfflineAgents()
+			}
+		}
+	}()
+
 	// Настраиваем роутер
 	r := chi.NewRouter()
 
@@ -78,6 +92,7 @@ func main() {
 
 		// Маршруты для агентов (с Bearer токеном)
 		r.Post("/agent/ping", h.AgentPing)
+		r.Put("/actions/{id}/status", h.UpdateActionStatus)
 
 		// Защищенные маршруты (требуют JWT аутентификации)
 		r.Group(func(r chi.Router) {
@@ -103,11 +118,14 @@ func main() {
 			// Образы
 			r.Get("/images", h.GetImages)
 
-			// Тома
-			r.Get("/volumes", h.GetVolumes)
+			// Действия (Actions)
+			r.Get("/actions", h.GetActions)
+			r.Post("/actions", h.CreateAction)
 
-			// Сети
-			r.Get("/networks", h.GetNetworks)
+			// Уведомления (Notifications)
+			r.Get("/notifications/settings", h.GetNotificationSettings)
+			r.Post("/notifications/settings", h.UpdateNotificationSettings)
+			r.Post("/notifications/test", h.SendTestNotification)
 		})
 	})
 

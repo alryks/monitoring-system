@@ -10,7 +10,6 @@ import {
   Container as ContainerIcon,
   Server,
   Network,
-  HardDrive,
   Search,
   CheckCircle,
   XCircle,
@@ -178,27 +177,6 @@ export default function ContainerDetail() {
               <span className={styles.infoLabel}>Получено:</span>
               <span className={styles.infoValue}>
                 {formatBytes(data.network_received_bytes || 0)}
-              </span>
-            </div>
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>Сети:</span>
-              <span className={styles.infoValue}>
-                {data.networks?.length ? data.networks.join(', ') : 'N/A'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.infoCard}>
-          <div className={styles.infoHeader}>
-            <HardDrive className={styles.infoIcon} />
-            <span className={styles.infoTitle}>Хранилище</span>
-          </div>
-          <div className={styles.infoBody}>
-            <div className={styles.infoRow}>
-              <span className={styles.infoLabel}>Тома:</span>
-              <span className={styles.infoValue}>
-                {data.volumes?.length ? data.volumes.join(', ') : 'N/A'}
               </span>
             </div>
           </div>

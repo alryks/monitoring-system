@@ -8,8 +8,8 @@ import {
   Server,
   Container,
   Package,
-  Network,
-  Settings,
+  Bell,
+  Zap,
 } from 'lucide-react'
 import styles from './Layout.module.css'
 
@@ -26,8 +26,8 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Агенты', href: '/agents', icon: Server },
     { name: 'Контейнеры', href: '/containers', icon: Container },
     { name: 'Образы', href: '/images', icon: Package },
-    { name: 'Сети и Тома', href: '/networks', icon: Network },
-    { name: 'Настройки', href: '/settings', icon: Settings, adminOnly: true },
+    { name: 'Действия', href: '/actions', icon: Zap },
+    { name: 'Уведомления', href: '/notifications', icon: Bell, adminOnly: true },
   ]
 
   const filteredNavigation = navigation.filter(item => {

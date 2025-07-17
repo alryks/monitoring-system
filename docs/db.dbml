@@ -225,3 +225,24 @@ Table networks {
     name
   }
 }
+
+// Действия для агентов
+Table actions {
+  id uuid [pk, default: `gen_random_uuid()`]
+  agent_id uuid [ref: > agents.id, not null]
+  type varchar(100) [not null] // start_container, stop_container, remove_container, remove_image, restart_nginx, write_file
+  payload jsonb [not null] // JSON с параметрами действия
+  status varchar(20) [not null, default: 'pending'] // pending, completed, failed
+  created timestamp [not null, default: `now()`]
+  completed timestamp // Время завершения действия
+  response text // Ответ от агента
+  error text // Ошибка если есть
+  
+  indexes {
+    agent_id
+    status
+    type
+    created
+    (agent_id, status)
+  }
+}

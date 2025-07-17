@@ -146,8 +146,6 @@ type NetworkInfo struct {
 type DockerInfo struct {
 	Containers []ContainerInfo `json:"containers"`
 	Images     []ImageInfo     `json:"images"`
-	Volumes    []VolumeInfo    `json:"volumes"`
-	Networks   []NetworkDocker `json:"networks"`
 }
 
 type ContainerInfo struct {
@@ -162,14 +160,12 @@ type ContainerInfo struct {
 	CPU          *float64             `json:"cpu"`
 	Memory       *uint64              `json:"memory"`
 	Network      ContainerNetworkInfo `json:"network"`
-	Volumes      []string             `json:"volumes"`
 	Logs         []string             `json:"logs"`
 }
 
 type ContainerNetworkInfo struct {
-	Sent     *uint64  `json:"sent"`
-	Received *uint64  `json:"received"`
-	Networks []string `json:"networks"`
+	Sent     *uint64 `json:"sent"`
+	Received *uint64 `json:"received"`
 }
 
 type ImageInfo struct {
@@ -178,23 +174,6 @@ type ImageInfo struct {
 	Size         int64    `json:"size"`
 	Tags         []string `json:"tags"`
 	Architecture string   `json:"architecture"`
-}
-
-type VolumeInfo struct {
-	Name       string `json:"name"`
-	Created    string `json:"created"`
-	Driver     string `json:"driver"`
-	Mountpoint string `json:"mountpoint"`
-}
-
-type NetworkDocker struct {
-	ID      string  `json:"id"`
-	Created string  `json:"created"`
-	Name    string  `json:"name"`
-	Driver  string  `json:"driver"`
-	Scope   string  `json:"scope"`
-	Subnet  *string `json:"subnet"`
-	Gateway *string `json:"gateway"`
 }
 
 // LoginRequest представляет запрос на вход
@@ -260,43 +239,6 @@ type ImageTag struct {
 	Tag     string    `json:"tag" db:"tag"`
 }
 
-// Volume представляет Docker том
-type Volume struct {
-	ID         uuid.UUID `json:"id" db:"id"`
-	PingID     uuid.UUID `json:"ping_id" db:"ping_id"`
-	Name       string    `json:"name" db:"name"`
-	Created    time.Time `json:"created" db:"created"`
-	Driver     string    `json:"driver" db:"driver"`
-	Mountpoint string    `json:"mountpoint" db:"mountpoint"`
-}
-
-// Network представляет Docker сеть в БД
-type Network struct {
-	ID      uuid.UUID `json:"id" db:"id"`
-	PingID  uuid.UUID `json:"ping_id" db:"ping_id"`
-	NetID   string    `json:"network_id" db:"network_id"`
-	Created time.Time `json:"created" db:"created"`
-	Name    string    `json:"name" db:"name"`
-	Driver  string    `json:"driver" db:"driver"`
-	Scope   string    `json:"scope" db:"scope"`
-	Subnet  *string   `json:"subnet" db:"subnet"`
-	Gateway *string   `json:"gateway" db:"gateway"`
-}
-
-// ContainerVolume представляет связь контейнера с томом
-type ContainerVolume struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	ContainerID uuid.UUID `json:"container_id" db:"container_id"`
-	VolumeName  string    `json:"volume_name" db:"volume_name"`
-}
-
-// ContainerNetwork представляет связь контейнера с сетью
-type ContainerNetwork struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	ContainerID uuid.UUID `json:"container_id" db:"container_id"`
-	NetworkName string    `json:"network_name" db:"network_name"`
-}
-
 // ContainerLog представляет лог контейнера
 type ContainerLog struct {
 	ID          uuid.UUID `json:"id" db:"id"`
@@ -310,11 +252,9 @@ type ContainerLog struct {
 // ContainerDetail представляет детальную информацию о контейнере
 type ContainerDetail struct {
 	Container
-	Agent    Agent             `json:"agent"`
-	Volumes  []string          `json:"volumes"`
-	Networks []string          `json:"networks"`
-	Logs     []ContainerLog    `json:"logs"`
-	History  []ContainerMetric `json:"history"`
+	Agent   Agent             `json:"agent"`
+	Logs    []ContainerLog    `json:"logs"`
+	History []ContainerMetric `json:"history"`
 }
 
 // ContainerMetric представляет историю метрик контейнера
@@ -331,26 +271,12 @@ type ImageDetail struct {
 	Agent Agent    `json:"agent"`
 }
 
-// VolumeDetail представляет детальную информацию о томе
-type VolumeDetail struct {
-	Volume
-	Agent Agent `json:"agent"`
-}
-
-// NetworkDetail представляет детальную информацию о сети
-type NetworkDetail struct {
-	Network
-	Agent Agent `json:"agent"`
-}
-
 // AgentDetail представляет детальную информацию об агенте
 type AgentDetail struct {
 	Agent
 	Metrics       AgentMetrics      `json:"metrics"`
 	Containers    []ContainerDetail `json:"containers"`
 	Images        []ImageDetail     `json:"images"`
-	Volumes       []VolumeDetail    `json:"volumes"`
-	Networks      []NetworkDetail   `json:"networks"`
 	SystemMetrics []SystemMetric    `json:"system_metrics"`
 }
 
@@ -398,10 +324,14 @@ type NetworkMetricCurrent struct {
 
 // SystemMetric представляет историческую метрику системы
 type SystemMetric struct {
-	Timestamp time.Time `json:"timestamp"`
-	CPUUsage  float64   `json:"cpu_usage"`
-	RAMUsage  float64   `json:"ram_usage"`
-	PublicIP  string    `json:"public_ip"`
+	Timestamp       time.Time `json:"timestamp"`
+	CPUUsage        float64   `json:"cpu_usage"`
+	RAMUsage        float64   `json:"ram_usage"`
+	DiskRead        int64     `json:"disk_read"`
+	DiskWrite       int64     `json:"disk_write"`
+	NetworkSent     int64     `json:"network_sent"`
+	NetworkReceived int64     `json:"network_received"`
+	PublicIP        string    `json:"public_ip"`
 }
 
 // ContainerListResponse представляет ответ со списком контейнеров
@@ -414,18 +344,6 @@ type ContainerListResponse struct {
 type ImageListResponse struct {
 	Images []ImageDetail `json:"images"`
 	Total  int           `json:"total"`
-}
-
-// VolumeListResponse представляет ответ со списком томов
-type VolumeListResponse struct {
-	Volumes []VolumeDetail `json:"volumes"`
-	Total   int            `json:"total"`
-}
-
-// NetworkListResponse представляет ответ со списком сетей
-type NetworkListResponse struct {
-	Networks []NetworkDetail `json:"networks"`
-	Total    int             `json:"total"`
 }
 
 // TopContainer представляет контейнер в топе по ресурсам
@@ -527,19 +445,140 @@ type ListRequest struct {
 	Pagination PaginationOptions `json:"pagination"`
 }
 
-// UpdateAgentRequest представляет запрос на обновление агента
-type UpdateAgentRequest struct {
-	Name *string `json:"name"`
+// Action представляет действие для агента
+type Action struct {
+	ID        uuid.UUID              `json:"id" db:"id"`
+	AgentID   uuid.UUID              `json:"agent_id" db:"agent_id"`
+	Type      string                 `json:"type" db:"type"`
+	Payload   map[string]interface{} `json:"payload" db:"payload"`
+	Status    string                 `json:"status" db:"status"`
+	Created   time.Time              `json:"created" db:"created"`
+	Completed *time.Time             `json:"completed" db:"completed"`
+	Response  *string                `json:"response" db:"response"`
+	Error     *string                `json:"error" db:"error"`
 }
 
-// ErrorResponse представляет ответ с ошибкой
-type ErrorResponse struct {
-	Error   string `json:"error"`
+// Константы для типов действий
+const (
+	ActionTypeStartContainer  = "start_container"
+	ActionTypeStopContainer   = "stop_container"
+	ActionTypeRemoveContainer = "remove_container"
+	ActionTypeRemoveImage     = "remove_image"
+	ActionTypeRestartNginx    = "restart_nginx"
+	ActionTypeWriteFile       = "write_file"
+)
+
+// Константы для статусов действий
+const (
+	ActionStatusPending   = "pending"
+	ActionStatusCompleted = "completed"
+	ActionStatusFailed    = "failed"
+)
+
+// Payload для запуска контейнера
+type StartContainerPayload struct {
+	Image       string            `json:"image"`
+	Name        string            `json:"name"`
+	Ports       map[string]string `json:"ports,omitempty"`
+	Environment map[string]string `json:"environment,omitempty"`
+	Volumes     map[string]string `json:"volumes,omitempty"`
+	Network     string            `json:"network,omitempty"`
+	Domain      string            `json:"domain,omitempty"`
+}
+
+// Payload для остановки контейнера
+type StopContainerPayload struct {
+	ContainerID string `json:"container_id"`
+	Timeout     int    `json:"timeout,omitempty"`
+}
+
+// Payload для удаления контейнера
+type RemoveContainerPayload struct {
+	ContainerID string `json:"container_id"`
+	Force       bool   `json:"force,omitempty"`
+}
+
+// Payload для удаления образа
+type RemoveImagePayload struct {
+	ImageID string `json:"image_id"`
+	Force   bool   `json:"force,omitempty"`
+}
+
+// Payload для записи файла
+type WriteFilePayload struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
+	Mode    int    `json:"mode,omitempty"`
+}
+
+// ActionResponse представляет ответ агента на действие
+type ActionResponse struct {
+	ID       string  `json:"id"`
+	Status   string  `json:"status"`
+	Response *string `json:"response"`
+	Error    *string `json:"error"`
+}
+
+// CreateActionRequest запрос на создание действия
+type CreateActionRequest struct {
+	AgentID string                 `json:"agent_id"`
+	Type    string                 `json:"type"`
+	Payload map[string]interface{} `json:"payload"`
+}
+
+// ActionListResponse ответ со списком действий
+type ActionListResponse struct {
+	Actions []Action `json:"actions"`
+	Total   int      `json:"total"`
+}
+
+// NotificationSettings представляет настройки уведомлений
+type NotificationSettings struct {
+	TelegramBotToken string                     `json:"telegram_bot_token"`
+	TelegramChatID   string                     `json:"telegram_chat_id"`
+	Notifications    NotificationConfigurations `json:"notifications"`
+}
+
+// NotificationConfigurations представляет конфигурации различных типов уведомлений
+type NotificationConfigurations struct {
+	AgentOffline     NotificationConfig `json:"agent_offline"`
+	ContainerStopped NotificationConfig `json:"container_stopped"`
+	CPUThreshold     CPUThresholdConfig `json:"cpu_threshold"`
+	RAMThreshold     RAMThresholdConfig `json:"ram_threshold"`
+}
+
+// NotificationConfig представляет базовую конфигурацию уведомления
+type NotificationConfig struct {
+	Enabled bool   `json:"enabled"`
 	Message string `json:"message"`
 }
 
-// SuccessResponse представляет успешный ответ
-type SuccessResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
+// CPUThresholdConfig представляет конфигурацию уведомления о превышении CPU
+type CPUThresholdConfig struct {
+	Enabled   bool   `json:"enabled"`
+	Threshold int    `json:"threshold"`
+	Message   string `json:"message"`
+}
+
+// RAMThresholdConfig представляет конфигурацию уведомления о превышении RAM
+type RAMThresholdConfig struct {
+	Enabled   bool   `json:"enabled"`
+	Threshold int    `json:"threshold"`
+	Message   string `json:"message"`
+}
+
+// NotificationEvent представляет событие для отправки уведомления
+type NotificationEvent struct {
+	Type      string            `json:"type"`
+	AgentID   *uuid.UUID        `json:"agent_id,omitempty"`
+	AgentName *string           `json:"agent_name,omitempty"`
+	Data      map[string]string `json:"data"`
+	Timestamp time.Time         `json:"timestamp"`
+}
+
+// TelegramMessage представляет сообщение для отправки в Telegram
+type TelegramMessage struct {
+	ChatID    string `json:"chat_id"`
+	Text      string `json:"text"`
+	ParseMode string `json:"parse_mode,omitempty"`
 }
