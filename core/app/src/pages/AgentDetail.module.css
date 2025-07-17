@@ -995,4 +995,8 @@
     width: auto;
     text-align: left;
   }
-} 
+}
+
+.actionsSection {
+  margin-top: 24px;
+}

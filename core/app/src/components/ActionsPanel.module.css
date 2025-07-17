@@ -1,0 +1,245 @@
+.container {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header h3 {
+  margin: 0;
+  color: #374151;
+}
+
+.addButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.addButton:hover {
+  background: #2563eb;
+}
+
+.addIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.form {
+  background: #f9fafb;
+  border-radius: 6px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.form h4 {
+  margin: 0 0 16px 0;
+  color: #374151;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.formGroup select,
+.formGroup input,
+.formGroup textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.formGroup textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+.formGroup input[type="checkbox"] {
+  width: auto;
+}
+
+.fields {
+  margin-top: 16px;
+}
+
+.formActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.submitButton {
+  padding: 8px 16px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.submitButton:hover {
+  background: #059669;
+}
+
+.submitButton:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cancelButton {
+  padding: 8px 16px;
+  background: #6b7280;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.cancelButton:hover {
+  background: #4b5563;
+}
+
+.actionsList {
+  margin-top: 20px;
+}
+
+.actionsList h4 {
+  margin: 0 0 16px 0;
+  color: #374151;
+}
+
+.actionItem {
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: white;
+}
+
+.actionItem.completed {
+  border-left: 4px solid #10b981;
+}
+
+.actionItem.failed {
+  border-left: 4px solid #ef4444;
+}
+
+.actionItem.pending {
+  border-left: 4px solid #f59e0b;
+}
+
+.actionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.actionInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusIcon {
+  width: 16px;
+  height: 16px;
+}
+
+.completed .statusIcon {
+  color: #10b981;
+}
+
+.failed .statusIcon {
+  color: #ef4444;
+}
+
+.pending .statusIcon {
+  color: #f59e0b;
+}
+
+.actionType {
+  font-weight: 500;
+  color: #374151;
+}
+
+.actionDate {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.actionStatus {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.completed .actionStatus {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.failed .actionStatus {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.pending .actionStatus {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.actionResponse {
+  margin-top: 8px;
+  padding: 8px;
+  background: #f0fdf4;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #166534;
+}
+
+.actionError {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fef2f2;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #991b1b;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 40px;
+  color: #6b7280;
+  font-style: italic;
+}

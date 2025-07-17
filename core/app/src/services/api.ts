@@ -63,8 +63,6 @@ export interface Container {
 
 export interface ContainerDetail extends Container {
   agent: Agent
-  volumes: string[]
-  networks: string[]
   logs: ContainerLog[]
   history: ContainerMetric[]
 }
@@ -93,15 +91,7 @@ export interface ImageListResponse {
   total: number
 }
 
-export interface VolumeListResponse {
-  volumes: Volume[]
-  total: number
-}
 
-export interface NetworkListResponse {
-  networks: Network[]
-  total: number
-}
 
 export interface Image {
   id: string
@@ -119,38 +109,7 @@ export interface ImageDetail extends Image {
   agent: Agent
 }
 
-export interface Volume {
-  id: string
-  ping_id: string
-  name: string
-  created: string
-  driver: string
-  mountpoint: string
-  agent_id?: string
-  agent_name?: string
-}
 
-export interface VolumeDetail extends Volume {
-  agent: Agent
-}
-
-export interface Network {
-  id: string
-  ping_id: string
-  network_id: string
-  name: string
-  driver: string
-  scope: string
-  subnet?: string
-  gateway?: string
-  created: string
-  agent_id?: string
-  agent_name?: string
-}
-
-export interface NetworkDetail extends Network {
-  agent: Agent
-}
 
 // Dashboard и агенты
 export interface DashboardData {
@@ -240,8 +199,6 @@ export interface AgentDetail {
   metrics: AgentMetrics
   containers: ContainerDetail[]
   images: ImageDetail[]
-  volumes: VolumeDetail[]
-  networks: NetworkDetail[]
   system_metrics: SystemMetric[]
 }
 
@@ -285,7 +242,7 @@ export interface NetworkMetricCurrent {
 export interface SystemMetric {
   timestamp: string
   cpu_usage: number
-  memory_usage: number
+  ram_usage: number
   disk_read: number
   disk_write: number
   network_sent: number
@@ -308,10 +265,6 @@ export const agentsApi = {
     api.get<Container[]>(`/api/agents/${id}/containers`),
   getImages: (id: string) => 
     api.get<Image[]>(`/api/agents/${id}/images`),
-  getVolumes: (id: string) => 
-    api.get<Volume[]>(`/api/agents/${id}/volumes`),
-  getNetworks: (id: string) => 
-    api.get<Network[]>(`/api/agents/${id}/networks`),
 }
 
 export const dashboardApi = {
@@ -341,27 +294,7 @@ export const imagesApi = {
   getDetail: (id: string) => api.get<ImageDetail>(`/api/images/${id}`),
 }
 
-export const volumesApi = {
-  getAll: async (params?: { agent_id?: string; search?: string }) => {
-    const response = await api.get<VolumeListResponse>('/api/volumes', { params })
-    return {
-      ...response,
-      data: response.data.volumes
-    }
-  },
-  getDetail: (id: string) => api.get<VolumeDetail>(`/api/volumes/${id}`),
-}
 
-export const networksApi = {
-  getAll: async (params?: { agent_id?: string; search?: string }) => {
-    const response = await api.get<NetworkListResponse>('/api/networks', { params })
-    return {
-      ...response,
-      data: response.data.networks
-    }
-  },
-  getDetail: (id: string) => api.get<NetworkDetail>(`/api/networks/${id}`),
-}
 
 // Утилитарные функции
 export const formatBytes = (bytes: number): string => {
@@ -411,4 +344,69 @@ export const getAgentStatusColor = (status: string): string => {
     default:
       return 'text-gray-600'
   }
-} 
+}
+
+// Action types
+export interface Action {
+  id: string
+  agent_id: string
+  type: string
+  payload: Record<string, any>
+  status: 'pending' | 'completed' | 'failed'
+  created: string
+  completed?: string
+  response?: string
+  error?: string
+}
+
+export interface CreateActionRequest {
+  agent_id: string
+  type: string
+  payload: Record<string, any>
+}
+
+export interface ActionListResponse {
+  actions: Action[]
+  total: number
+}
+
+// API functions for actions
+export const actionsApi = {
+  create: (data: CreateActionRequest) => api.post<Action>('/api/actions', data),
+  list: (params?: { agent_id?: string; status?: string }) => 
+    api.get<ActionListResponse>('/api/actions', { params }),
+}
+
+// Notification types
+export interface NotificationSettings {
+  telegram_bot_token: string
+  telegram_chat_id: string
+  notifications: {
+    agent_offline: {
+      enabled: boolean
+      message: string
+    }
+    container_stopped: {
+      enabled: boolean
+      message: string
+    }
+    cpu_threshold: {
+      enabled: boolean
+      threshold: number
+      message: string
+    }
+    ram_threshold: {
+      enabled: boolean
+      threshold: number
+      message: string
+    }
+  }
+}
+
+// API functions for notifications
+export const notificationsApi = {
+  getSettings: () => api.get<NotificationSettings>('/api/notifications/settings'),
+  updateSettings: (settings: NotificationSettings) => 
+    api.post<NotificationSettings>('/api/notifications/settings', settings),
+  sendTest: () => api.post<{ message: string }>('/api/notifications/test'),
+}

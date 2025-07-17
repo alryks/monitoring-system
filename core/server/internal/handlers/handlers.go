@@ -16,17 +16,20 @@ import (
 
 	"monitoring-system/core/server/internal/auth"
 	"monitoring-system/core/server/internal/models"
+	"monitoring-system/core/server/internal/notifications"
 )
 
 type Handlers struct {
-	db   *sql.DB
-	auth *auth.Service
+	db           *sql.DB
+	auth         *auth.Service
+	notification *notifications.Service
 }
 
 func New(db *sql.DB, authService *auth.Service) *Handlers {
 	h := &Handlers{
-		db:   db,
-		auth: authService,
+		db:           db,
+		auth:         authService,
+		notification: notifications.New(),
 	}
 
 	// Создаем админа по умолчанию
@@ -132,13 +135,13 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 
 // AgentPing обрабатывает пинги от агентов
 // @Summary Пинг от агента
-// @Description Получает данные мониторинга от агента и сохраняет их в базе данных
+// @Description Получает данные мониторинга от агента и сохраняет их в базе данных, возвращает список невыполненных действий
 // @Tags agent-data
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Bearer токен агента"
 // @Param request body models.AgentData true "Данные мониторинга от агента"
-// @Success 200 {string} string "Данные успешно сохранены"
+// @Success 200 {object} []models.Action "Список невыполненных действий"
 // @Failure 400 {string} string "Неверные данные"
 // @Failure 401 {string} string "Неверный токен агента"
 // @Failure 500 {string} string "Ошибка сервера"
@@ -161,7 +164,8 @@ func (h *Handlers) AgentPing(w http.ResponseWriter, r *http.Request) {
 
 	// Проверяем существование агента с таким токеном
 	var agentID uuid.UUID
-	err := h.db.QueryRow("SELECT id FROM agents WHERE token = $1 AND is_active = true", token).Scan(&agentID)
+	var agentName string
+	err := h.db.QueryRow("SELECT id, name FROM agents WHERE token = $1 AND is_active = true", token).Scan(&agentID, &agentName)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			http.Error(w, "Invalid agent token", http.StatusUnauthorized)
@@ -185,7 +189,20 @@ func (h *Handlers) AgentPing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	// Проверяем уведомления
+	h.checkNotifications(agentID, agentName, &agentData)
+
+	// Получаем список невыполненных действий для агента
+	pendingActions, err := h.getPendingActions(agentID)
+	if err != nil {
+		log.Printf("Error getting pending actions: %v", err)
+		http.Error(w, "Error getting actions", http.StatusInternalServerError)
+		return
+	}
+
+	// Возвращаем список действий
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(pendingActions)
 }
 
 // saveAgentData сохраняет данные от агента в БД
@@ -195,6 +212,12 @@ func (h *Handlers) saveAgentData(agentID uuid.UUID, data *models.AgentData) erro
 		return err
 	}
 	defer tx.Rollback()
+
+	// Обновляем время последнего пинга агента
+	_, err = tx.Exec("UPDATE agents SET last_ping = now() WHERE id = $1", agentID)
+	if err != nil {
+		return err
+	}
 
 	// Создаем запись пинга
 	var pingID uuid.UUID
@@ -274,36 +297,18 @@ func (h *Handlers) saveAgentData(agentID uuid.UUID, data *models.AgentData) erro
 			return err
 		}
 
-		// Сохраняем сети контейнера
-		for _, network := range container.Network.Networks {
-			_, err = tx.Exec(`
-				INSERT INTO container_networks (container_id, network_name)
-				VALUES ($1, $2)
-			`, containerDBID, network)
-			if err != nil {
-				return err
-			}
-		}
-
-		// Сохраняем тома контейнера
-		for _, volume := range container.Volumes {
-			_, err = tx.Exec(`
-				INSERT INTO container_volumes (container_id, volume_name)
-				VALUES ($1, $2)
-			`, containerDBID, volume)
-			if err != nil {
-				return err
-			}
-		}
-
 		// Сохраняем логи контейнера
 		for _, logLine := range container.Logs {
-			_, err = tx.Exec(`
-			INSERT INTO container_logs (container_id, log_line, timestamp)
-			VALUES ($1, $2, now())
-		`, containerDBID, logLine)
-			if err != nil {
-				return err
+			// Очищаем строку от null-байтов
+			cleanLogLine := strings.ReplaceAll(logLine, "\x00", "")
+			if cleanLogLine != "" {
+				_, err = tx.Exec(`
+				INSERT INTO container_logs (container_id, log_line, timestamp)
+				VALUES ($1, $2, now())
+			`, containerDBID, cleanLogLine)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -331,32 +336,6 @@ func (h *Handlers) saveAgentData(agentID uuid.UUID, data *models.AgentData) erro
 			if err != nil {
 				return err
 			}
-		}
-	}
-
-	// Сохраняем тома
-	for _, volume := range data.Docker.Volumes {
-		volumeCreatedAt, _ := time.Parse(time.RFC3339, volume.Created)
-
-		_, err = tx.Exec(`
-		INSERT INTO volumes (ping_id, name, created, driver, mountpoint)
-		VALUES ($1, $2, $3, $4, $5)
-	`, pingID, volume.Name, volumeCreatedAt, volume.Driver, volume.Mountpoint)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Сохраняем сети
-	for _, network := range data.Docker.Networks {
-		networkCreatedAt, _ := time.Parse(time.RFC3339, network.Created)
-
-		_, err = tx.Exec(`
-		INSERT INTO networks (ping_id, network_id, created, name, driver, scope, subnet, gateway)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-	`, pingID, network.ID, networkCreatedAt, network.Name, network.Driver, network.Scope, network.Subnet, network.Gateway)
-		if err != nil {
-			return err
 		}
 	}
 
@@ -1042,26 +1021,12 @@ func (h *Handlers) GetAgentDetail(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Error getting images: %v", err)
 	}
 
-	// Получаем тома
-	volumes, err := h.getAgentVolumes(agentID)
-	if err != nil {
-		log.Printf("Error getting volumes: %v", err)
-	}
-
-	// Получаем сети
-	networks, err := h.getAgentNetworks(agentID)
-	if err != nil {
-		log.Printf("Error getting networks: %v", err)
-	}
-
 	detail := models.AgentDetail{
 		Agent:         agent,
 		Metrics:       metrics,
 		SystemMetrics: systemMetrics,
 		Containers:    containers,
 		Images:        images,
-		Volumes:       volumes,
-		Networks:      networks,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -1309,195 +1274,6 @@ func (h *Handlers) GetImages(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// GetVolumes возвращает все тома со всех агентов
-// @Summary Получить список томов
-// @Description Возвращает список всех Docker томов с фильтрацией
-// @Tags volumes
-// @Produce json
-// @Security BearerAuth
-// @Param agent_id query string false "ID агента для фильтрации"
-// @Param search query string false "Поиск по имени тома"
-// @Success 200 {object} models.VolumeListResponse "Список томов"
-// @Failure 401 {string} string "Не авторизован"
-// @Failure 500 {string} string "Ошибка сервера"
-// @Router /volumes [get]
-func (h *Handlers) GetVolumes(w http.ResponseWriter, r *http.Request) {
-	agentID := r.URL.Query().Get("agent_id")
-	search := r.URL.Query().Get("search")
-
-	// Получаем только тома из последнего ping'а для каждого агента (или конкретного агента)
-	var args []interface{}
-	argCount := 1
-
-	query := `
-		WITH latest_pings AS (
-			SELECT DISTINCT ON (ap.agent_id) ap.id, ap.agent_id, ap.created
-			FROM agent_pings ap
-			JOIN agents a ON ap.agent_id = a.id
-			WHERE 1=1`
-
-	// Фильтрация по агенту в CTE
-	if agentID != "" {
-		if agentUUID, err := uuid.Parse(agentID); err == nil {
-			query += fmt.Sprintf(" AND a.id = $%d", argCount)
-			args = append(args, agentUUID)
-			argCount++
-		}
-	}
-
-	query += `
-		ORDER BY ap.agent_id, ap.created DESC
-	)
-	SELECT v.id, v.ping_id, v.name, v.created, v.driver, v.mountpoint,
-		   a.id as agent_id, a.name as agent_name
-	FROM volumes v
-	JOIN latest_pings lp ON v.ping_id = lp.id
-	JOIN agents a ON lp.agent_id = a.id
-	WHERE 1=1`
-
-	// Дополнительные фильтры для томов
-	if search != "" {
-		query += fmt.Sprintf(" AND v.name ILIKE $%d", argCount)
-		args = append(args, "%"+search+"%")
-		argCount++
-	}
-
-	query += " ORDER BY v.name"
-
-	rows, err := h.db.Query(query, args...)
-	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var volumes []models.VolumeDetail
-	for rows.Next() {
-		var volume models.VolumeDetail
-		var agentID uuid.UUID
-		var agentName string
-
-		err := rows.Scan(
-			&volume.ID, &volume.PingID, &volume.Name, &volume.Created,
-			&volume.Driver, &volume.Mountpoint, &agentID, &agentName,
-		)
-		if err != nil {
-			log.Printf("Error scanning volume: %v", err)
-			continue
-		}
-
-		volume.Agent = models.Agent{
-			ID:   agentID,
-			Name: agentName,
-		}
-
-		volumes = append(volumes, volume)
-	}
-
-	response := models.VolumeListResponse{
-		Volumes: volumes,
-		Total:   len(volumes),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// GetNetworks возвращает все сети со всех агентов
-// @Summary Получить список сетей
-// @Description Возвращает список всех Docker сетей с фильтрацией
-// @Tags networks
-// @Produce json
-// @Security BearerAuth
-// @Param agent_id query string false "ID агента для фильтрации"
-// @Param search query string false "Поиск по имени сети"
-// @Success 200 {object} models.NetworkListResponse "Список сетей"
-// @Failure 401 {string} string "Не авторизован"
-// @Failure 500 {string} string "Ошибка сервера"
-// @Router /networks [get]
-func (h *Handlers) GetNetworks(w http.ResponseWriter, r *http.Request) {
-	agentID := r.URL.Query().Get("agent_id")
-	search := r.URL.Query().Get("search")
-
-	// Получаем только сети из последнего ping'а для каждого агента (или конкретного агента)
-	var args []interface{}
-	argCount := 1
-
-	query := `
-		WITH latest_pings AS (
-			SELECT DISTINCT ON (ap.agent_id) ap.id, ap.agent_id, ap.created
-			FROM agent_pings ap
-			JOIN agents a ON ap.agent_id = a.id
-			WHERE 1=1`
-
-	// Фильтрация по агенту в CTE
-	if agentID != "" {
-		if agentUUID, err := uuid.Parse(agentID); err == nil {
-			query += fmt.Sprintf(" AND a.id = $%d", argCount)
-			args = append(args, agentUUID)
-			argCount++
-		}
-	}
-
-	query += `
-		ORDER BY ap.agent_id, ap.created DESC
-	)
-	SELECT n.id, n.ping_id, n.network_id, n.created, n.name, n.driver, 
-		   n.scope, n.subnet, n.gateway, a.id as agent_id, a.name as agent_name
-	FROM networks n
-	JOIN latest_pings lp ON n.ping_id = lp.id
-	JOIN agents a ON lp.agent_id = a.id
-	WHERE 1=1`
-
-	// Дополнительные фильтры для сетей
-	if search != "" {
-		query += fmt.Sprintf(" AND n.name ILIKE $%d", argCount)
-		args = append(args, "%"+search+"%")
-		argCount++
-	}
-
-	query += " ORDER BY n.name"
-
-	rows, err := h.db.Query(query, args...)
-	if err != nil {
-		http.Error(w, "Database error", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var networks []models.NetworkDetail
-	for rows.Next() {
-		var network models.NetworkDetail
-		var agentID uuid.UUID
-		var agentName string
-
-		err := rows.Scan(
-			&network.ID, &network.PingID, &network.NetID, &network.Created,
-			&network.Name, &network.Driver, &network.Scope, &network.Subnet,
-			&network.Gateway, &agentID, &agentName,
-		)
-		if err != nil {
-			log.Printf("Error scanning network: %v", err)
-			continue
-		}
-
-		network.Agent = models.Agent{
-			ID:   agentID,
-			Name: agentName,
-		}
-
-		networks = append(networks, network)
-	}
-
-	response := models.NetworkListResponse{
-		Networks: networks,
-		Total:    len(networks),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
 // GetContainerDetail возвращает детальную информацию о контейнере
 // GetContainerDetail возвращает детальную информацию о контейнере
 // @Summary Получить детальную информацию о контейнере
@@ -1555,20 +1331,6 @@ func (h *Handlers) GetContainerDetail(w http.ResponseWriter, r *http.Request) {
 		ID:   agentID,
 		Name: agentName,
 	}
-
-	// Получаем тома контейнера
-	volumes, err := h.getContainerVolumes(containerID)
-	if err != nil {
-		log.Printf("Error getting container volumes: %v", err)
-	}
-	container.Volumes = volumes
-
-	// Получаем сети контейнера
-	networks, err := h.getContainerNetworks(containerID)
-	if err != nil {
-		log.Printf("Error getting container networks: %v", err)
-	}
-	container.Networks = networks
 
 	// Получаем логи контейнера
 	logs, err := h.getContainerLogs(containerID)
@@ -1713,10 +1475,16 @@ func (h *Handlers) getAgentSystemMetrics(agentID uuid.UUID) ([]models.SystemMetr
 		SELECT ap.created, 
 			   COALESCE(AVG(cm.usage_percent), 0) as avg_cpu,
 			   COALESCE(AVG(CASE WHEN mm.ram_total_mb > 0 THEN (mm.ram_usage_mb::float / mm.ram_total_mb::float) * 100 END), 0) as avg_ram,
+			   COALESCE(SUM(dm.read_bytes), 0) as disk_read,
+			   COALESCE(SUM(dm.write_bytes), 0) as disk_write,
+			   COALESCE(SUM(c.network_sent_bytes), 0) as network_sent,
+			   COALESCE(SUM(c.network_received_bytes), 0) as network_received,
 			   COALESCE(nm.public_ip, '0.0.0.0') as public_ip
 		FROM agent_pings ap
 		LEFT JOIN cpu_metrics cm ON ap.id = cm.ping_id
 		LEFT JOIN memory_metrics mm ON ap.id = mm.ping_id
+		LEFT JOIN disk_metrics dm ON ap.id = dm.ping_id
+		LEFT JOIN containers c ON ap.id = c.ping_id
 		LEFT JOIN network_metrics nm ON ap.id = nm.ping_id
 		WHERE ap.agent_id = $1 AND ap.created > now() - interval '1 hour'
 		GROUP BY ap.created, nm.public_ip
@@ -1731,7 +1499,8 @@ func (h *Handlers) getAgentSystemMetrics(agentID uuid.UUID) ([]models.SystemMetr
 	var metrics []models.SystemMetric
 	for rows.Next() {
 		var metric models.SystemMetric
-		err := rows.Scan(&metric.Timestamp, &metric.CPUUsage, &metric.RAMUsage, &metric.PublicIP)
+		err := rows.Scan(&metric.Timestamp, &metric.CPUUsage, &metric.RAMUsage,
+			&metric.DiskRead, &metric.DiskWrite, &metric.NetworkSent, &metric.NetworkReceived, &metric.PublicIP)
 		if err != nil {
 			continue
 		}
@@ -1818,114 +1587,6 @@ func (h *Handlers) getAgentImages(agentID uuid.UUID) ([]models.ImageDetail, erro
 	}
 
 	return images, nil
-}
-
-func (h *Handlers) getAgentVolumes(agentID uuid.UUID) ([]models.VolumeDetail, error) {
-	rows, err := h.db.Query(`
-		SELECT v.id, v.ping_id, v.name, v.created, v.driver, v.mountpoint
-		FROM volumes v
-		JOIN agent_pings ap ON v.ping_id = ap.id
-		WHERE ap.agent_id = $1 AND ap.created = (
-			SELECT MAX(created) FROM agent_pings WHERE agent_id = $1
-		)
-		ORDER BY v.name
-	`, agentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var volumes []models.VolumeDetail
-	for rows.Next() {
-		var volume models.VolumeDetail
-		err := rows.Scan(
-			&volume.ID, &volume.PingID, &volume.Name, &volume.Created,
-			&volume.Driver, &volume.Mountpoint,
-		)
-		if err != nil {
-			continue
-		}
-		volumes = append(volumes, volume)
-	}
-
-	return volumes, nil
-}
-
-func (h *Handlers) getAgentNetworks(agentID uuid.UUID) ([]models.NetworkDetail, error) {
-	rows, err := h.db.Query(`
-		SELECT n.id, n.ping_id, n.network_id, n.created, n.name, n.driver, 
-			   n.scope, n.subnet, n.gateway
-		FROM networks n
-		JOIN agent_pings ap ON n.ping_id = ap.id
-		WHERE ap.agent_id = $1 AND ap.created = (
-			SELECT MAX(created) FROM agent_pings WHERE agent_id = $1
-		)
-		ORDER BY n.name
-	`, agentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var networks []models.NetworkDetail
-	for rows.Next() {
-		var network models.NetworkDetail
-		err := rows.Scan(
-			&network.ID, &network.PingID, &network.NetID, &network.Created,
-			&network.Name, &network.Driver, &network.Scope, &network.Subnet,
-			&network.Gateway,
-		)
-		if err != nil {
-			continue
-		}
-		networks = append(networks, network)
-	}
-
-	return networks, nil
-}
-
-func (h *Handlers) getContainerVolumes(containerID uuid.UUID) ([]string, error) {
-	rows, err := h.db.Query(`
-		SELECT volume_name FROM container_volumes WHERE container_id = $1
-	`, containerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var volumes []string
-	for rows.Next() {
-		var volume string
-		err := rows.Scan(&volume)
-		if err != nil {
-			continue
-		}
-		volumes = append(volumes, volume)
-	}
-
-	return volumes, nil
-}
-
-func (h *Handlers) getContainerNetworks(containerID uuid.UUID) ([]string, error) {
-	rows, err := h.db.Query(`
-		SELECT network_name FROM container_networks WHERE container_id = $1
-	`, containerID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var networks []string
-	for rows.Next() {
-		var network string
-		err := rows.Scan(&network)
-		if err != nil {
-			continue
-		}
-		networks = append(networks, network)
-	}
-
-	return networks, nil
 }
 
 func (h *Handlers) getContainerLogs(containerID uuid.UUID) ([]models.ContainerLog, error) {
@@ -2248,4 +1909,418 @@ func (h *Handlers) getAgentsSummary() ([]models.AgentSummary, error) {
 	}
 
 	return agents, nil
+}
+
+// getPendingActions получает список невыполненных действий для агента
+func (h *Handlers) getPendingActions(agentID uuid.UUID) ([]models.Action, error) {
+	rows, err := h.db.Query(`
+		SELECT id, agent_id, type, payload, status, created, completed, response, error
+		FROM actions 
+		WHERE agent_id = $1 AND status = $2
+		ORDER BY created ASC
+	`, agentID, models.ActionStatusPending)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var actions []models.Action
+	for rows.Next() {
+		var action models.Action
+		var payloadJSON []byte
+		err := rows.Scan(
+			&action.ID, &action.AgentID, &action.Type, &payloadJSON,
+			&action.Status, &action.Created, &action.Completed,
+			&action.Response, &action.Error,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Парсим JSON payload
+		if err := json.Unmarshal(payloadJSON, &action.Payload); err != nil {
+			return nil, err
+		}
+
+		actions = append(actions, action)
+	}
+
+	return actions, nil
+}
+
+// CreateAction создает новое действие для агента
+// @Summary Создание действия
+// @Description Создает новое действие для выполнения агентом
+// @Tags actions
+// @Accept json
+// @Produce json
+// @Param request body models.CreateActionRequest true "Данные действия"
+// @Success 201 {object} models.Action "Действие создано"
+// @Failure 400 {string} string "Неверные данные"
+// @Failure 500 {string} string "Ошибка сервера"
+// @Router /actions [post]
+func (h *Handlers) CreateAction(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем существование агента
+	agentID, err := uuid.Parse(req.AgentID)
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	var agentExists bool
+	err = h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM agents WHERE id = $1 AND is_active = true)", agentID).Scan(&agentExists)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	if !agentExists {
+		http.Error(w, "Agent not found", http.StatusNotFound)
+		return
+	}
+
+	// Создаем действие
+	payloadJSON, err := json.Marshal(req.Payload)
+	if err != nil {
+		http.Error(w, "Invalid payload", http.StatusBadRequest)
+		return
+	}
+
+	var action models.Action
+	err = h.db.QueryRow(`
+		INSERT INTO actions (agent_id, type, payload, status, created)
+		VALUES ($1, $2, $3, $4, now())
+		RETURNING id, agent_id, type, payload, status, created, completed, response, error
+	`, agentID, req.Type, payloadJSON, models.ActionStatusPending).Scan(
+		&action.ID, &action.AgentID, &action.Type, &payloadJSON,
+		&action.Status, &action.Created, &action.Completed,
+		&action.Response, &action.Error,
+	)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	// Парсим payload обратно
+	if err := json.Unmarshal(payloadJSON, &action.Payload); err != nil {
+		http.Error(w, "Error processing action", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(action)
+}
+
+// GetActions получает список действий
+// @Summary Получение списка действий
+// @Description Получает список действий с фильтрацией
+// @Tags actions
+// @Produce json
+// @Param agent_id query string false "ID агента"
+// @Param status query string false "Статус действия"
+// @Param type query string false "Тип действия"
+// @Success 200 {object} models.ActionListResponse "Список действий"
+// @Failure 500 {string} string "Ошибка сервера"
+// @Router /actions [get]
+func (h *Handlers) GetActions(w http.ResponseWriter, r *http.Request) {
+	agentID := r.URL.Query().Get("agent_id")
+	status := r.URL.Query().Get("status")
+	actionType := r.URL.Query().Get("type")
+
+	query := `
+		SELECT id, agent_id, type, payload, status, created, completed, response, error
+		FROM actions 
+		WHERE 1=1
+	`
+	var args []interface{}
+	var conditions []string
+	argCount := 1
+
+	if agentID != "" {
+		conditions = append(conditions, fmt.Sprintf("agent_id = $%d", argCount))
+		args = append(args, agentID)
+		argCount++
+	}
+
+	if status != "" {
+		conditions = append(conditions, fmt.Sprintf("status = $%d", argCount))
+		args = append(args, status)
+		argCount++
+	}
+
+	if actionType != "" {
+		conditions = append(conditions, fmt.Sprintf("type = $%d", argCount))
+		args = append(args, actionType)
+		argCount++
+	}
+
+	if len(conditions) > 0 {
+		query += " AND " + strings.Join(conditions, " AND ")
+	}
+
+	query += " ORDER BY created DESC"
+
+	rows, err := h.db.Query(query, args...)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var actions []models.Action
+	for rows.Next() {
+		var action models.Action
+		var payloadJSON []byte
+		err := rows.Scan(
+			&action.ID, &action.AgentID, &action.Type, &payloadJSON,
+			&action.Status, &action.Created, &action.Completed,
+			&action.Response, &action.Error,
+		)
+		if err != nil {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+
+		// Парсим JSON payload
+		if err := json.Unmarshal(payloadJSON, &action.Payload); err != nil {
+			http.Error(w, "Error processing action", http.StatusInternalServerError)
+			return
+		}
+
+		actions = append(actions, action)
+	}
+
+	response := models.ActionListResponse{
+		Actions: actions,
+		Total:   len(actions),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// UpdateActionStatus обновляет статус действия
+// @Summary Обновление статуса действия
+// @Description Обновляет статус действия и сохраняет ответ от агента
+// @Tags actions
+// @Accept json
+// @Produce json
+// @Param id path string true "ID действия"
+// @Param Authorization header string true "Bearer токен агента"
+// @Param request body models.ActionResponse true "Ответ агента"
+// @Success 200 {object} models.Action "Действие обновлено"
+// @Failure 400 {string} string "Неверные данные"
+// @Failure 401 {string} string "Неверный токен агента"
+// @Failure 404 {string} string "Действие не найдено"
+// @Failure 500 {string} string "Ошибка сервера"
+// @Router /actions/{id}/status [put]
+func (h *Handlers) UpdateActionStatus(w http.ResponseWriter, r *http.Request) {
+	// Проверяем Bearer токен агента
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header required", http.StatusUnauthorized)
+		return
+	}
+
+	bearerToken := strings.Split(authHeader, " ")
+	if len(bearerToken) != 2 || bearerToken[0] != "Bearer" {
+		http.Error(w, "Invalid authorization header format", http.StatusUnauthorized)
+		return
+	}
+
+	token := bearerToken[1]
+
+	// Проверяем существование агента с таким токеном
+	var agentID uuid.UUID
+	err := h.db.QueryRow("SELECT id FROM agents WHERE token = $1 AND is_active = true", token).Scan(&agentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Invalid agent token", http.StatusUnauthorized)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	actionID := chi.URLParam(r, "id")
+	if actionID == "" {
+		http.Error(w, "Action ID required", http.StatusBadRequest)
+		return
+	}
+
+	var req models.ActionResponse
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Проверяем, что действие принадлежит этому агенту
+	var actionAgentID uuid.UUID
+	err = h.db.QueryRow("SELECT agent_id FROM actions WHERE id = $1", actionID).Scan(&actionAgentID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Action not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Database error", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if actionAgentID != agentID {
+		http.Error(w, "Action does not belong to this agent", http.StatusForbidden)
+		return
+	}
+
+	// Обновляем статус действия
+	var completed *time.Time
+	if req.Status == models.ActionStatusCompleted || req.Status == models.ActionStatusFailed {
+		now := time.Now()
+		completed = &now
+	}
+
+	_, err = h.db.Exec(`
+		UPDATE actions 
+		SET status = $1, completed = $2, response = $3, error = $4
+		WHERE id = $5
+	`, req.Status, completed, req.Response, req.Error, actionID)
+	if err != nil {
+		http.Error(w, "Database error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// GetNotificationSettings получает настройки уведомлений
+// @Summary Получение настроек уведомлений
+// @Description Получает текущие настройки уведомлений
+// @Tags notifications
+// @Produce json
+// @Success 200 {object} models.NotificationSettings "Настройки уведомлений"
+// @Failure 500 {string} string "Ошибка сервера"
+// @Router /notifications/settings [get]
+func (h *Handlers) GetNotificationSettings(w http.ResponseWriter, r *http.Request) {
+	settings := h.notification.GetSettings()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+// UpdateNotificationSettings обновляет настройки уведомлений
+// @Summary Обновление настроек уведомлений
+// @Description Обновляет настройки уведомлений
+// @Tags notifications
+// @Accept json
+// @Produce json
+// @Param request body models.NotificationSettings true "Настройки уведомлений"
+// @Success 200 {object} models.NotificationSettings "Настройки обновлены"
+// @Failure 400 {string} string "Неверные данные"
+// @Failure 500 {string} string "Ошибка сервера"
+// @Router /notifications/settings [post]
+func (h *Handlers) UpdateNotificationSettings(w http.ResponseWriter, r *http.Request) {
+	var settings models.NotificationSettings
+	if err := json.NewDecoder(r.Body).Decode(&settings); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Обновляем настройки в сервисе
+	h.notification.UpdateSettings(&settings)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(settings)
+}
+
+// SendTestNotification отправляет тестовое уведомление
+// @Summary Отправка тестового уведомления
+// @Description Отправляет тестовое уведомление в Telegram
+// @Tags notifications
+// @Produce json
+// @Success 200 {object} map[string]string "Уведомление отправлено"
+// @Failure 400 {string} string "Не настроен токен бота"
+// @Failure 500 {string} string "Ошибка отправки"
+// @Router /notifications/test [post]
+func (h *Handlers) SendTestNotification(w http.ResponseWriter, r *http.Request) {
+	err := h.notification.SendTestNotification()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]string{
+		"message": "Test notification sent successfully",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// checkNotifications проверяет условия для отправки уведомлений
+func (h *Handlers) checkNotifications(agentID uuid.UUID, agentName string, agentData *models.AgentData) {
+	// Проверяем CPU
+	if len(agentData.Metrics.CPU) > 0 {
+		totalCPU := 0.0
+		for _, cpu := range agentData.Metrics.CPU {
+			totalCPU += cpu.Usage
+		}
+		avgCPU := totalCPU / float64(len(agentData.Metrics.CPU))
+
+		if err := h.notification.CheckCPUThreshold(agentName, avgCPU); err != nil {
+			log.Printf("Error sending CPU threshold notification: %v", err)
+		}
+	}
+
+	// Проверяем RAM
+	if agentData.Metrics.Memory.RAM.Total > 0 {
+		ramUsagePercent := float64(agentData.Metrics.Memory.RAM.Usage) / float64(agentData.Metrics.Memory.RAM.Total) * 100
+
+		if err := h.notification.CheckRAMThreshold(agentName, ramUsagePercent); err != nil {
+			log.Printf("Error sending RAM threshold notification: %v", err)
+		}
+	}
+
+	// Проверяем контейнеры
+	for _, container := range agentData.Docker.Containers {
+		if container.Status == "exited" || container.Status == "stopped" {
+			if err := h.notification.CheckContainerStopped(container.Name, agentName); err != nil {
+				log.Printf("Error sending container stopped notification: %v", err)
+			}
+		}
+	}
+}
+
+// CheckOfflineAgents проверяет агентов, которые не отвечают, и отправляет уведомления
+func (h *Handlers) CheckOfflineAgents() {
+	// Находим агентов, которые не отвечали более 60 секунд
+	rows, err := h.db.Query(`
+		SELECT id, name 
+		FROM agents 
+		WHERE is_active = true 
+		AND (last_ping IS NULL OR last_ping < NOW() - INTERVAL '60 seconds')
+	`)
+	if err != nil {
+		log.Printf("Error checking offline agents: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var agentID uuid.UUID
+		var agentName string
+		if err := rows.Scan(&agentID, &agentName); err != nil {
+			log.Printf("Error scanning agent: %v", err)
+			continue
+		}
+
+		// Отправляем уведомление о недоступности агента
+		if err := h.notification.CheckAgentOffline(agentName); err != nil {
+			log.Printf("Error sending agent offline notification: %v", err)
+		}
+	}
 }
