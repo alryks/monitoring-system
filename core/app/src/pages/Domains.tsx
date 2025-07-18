@@ -62,7 +62,7 @@ const Domains: React.FC = () => {
   const fetchDomains = async () => {
     try {
       const response = await api.get('/api/domains');
-      setDomains(response.data || []);
+      setDomains(response.data.domains || []);
     } catch (error) {
       console.error('Error fetching domains:', error);
       setDomains([]);
