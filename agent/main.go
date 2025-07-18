@@ -1199,111 +1199,97 @@ server {
 
 // handleUpdateNginxConfig обрабатывает обновление конфигурации nginx
 func handleUpdateNginxConfig(payload map[string]interface{}) (*string, *string, string) {
-	// Получаем данные из payload
-	domains, ok := payload["domains"].([]interface{})
-	if !ok {
-		err := "domains array is required"
-		return nil, &err, ActionStatusFailed
-	}
-
 	// Создаем директорию для конфигураций если не существует
 	if err := os.MkdirAll("conf.d", 0755); err != nil {
 		errMsg := fmt.Sprintf("Failed to create conf.d directory: %v", err)
 		return nil, &errMsg, ActionStatusFailed
 	}
+	domain, ok := payload["domain"].(string)
+	if !ok {
+		err := "Domain is required"
+		return nil, &err, ActionStatusFailed
+	}
 
-	// Обрабатываем каждый домен
-	for _, domainInterface := range domains {
-		domainData, ok := domainInterface.(map[string]interface{})
-		if !ok {
-			continue
-		}
+	routes, ok := payload["routes"].([]interface{})
+	if !ok {
+		err := "Routes is required"
+		return nil, &err, ActionStatusFailed
+	}
 
-		domain, ok := domainData["domain"].(string)
-		if !ok {
-			continue
-		}
+	sslEnabled, _ := payload["ssl_enabled"].(bool)
 
-		routes, ok := domainData["routes"].([]interface{})
-		if !ok {
-			continue
-		}
-
-		sslEnabled, _ := domainData["ssl_enabled"].(bool)
-
-		// Генерируем конфигурацию для домена
-		var config string
-		if sslEnabled {
-			config = fmt.Sprintf(`
+	// Генерируем конфигурацию для домена
+	var config string
+	if sslEnabled {
+		config = fmt.Sprintf(`
 server {
-    listen 80;
-    server_name %s;
-    return 301 https://$server_name$request_uri;
+listen 80;
+server_name %s;
+return 301 https://$server_name$request_uri;
 }
 
 server {
-    listen 443 ssl;
-    server_name %s;
-    
-    ssl_certificate conf.d/%s/pub.key;
-    ssl_certificate_key conf.d/%s/priv.key;
-    
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
+listen 443 ssl;
+server_name %s;
+
+ssl_certificate conf.d/%s/pub.key;
+ssl_certificate_key conf.d/%s/priv.key;
+
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+ssl_prefer_server_ciphers off;
 `, domain, domain, domain, domain)
-		} else {
-			config = fmt.Sprintf(`
+	} else {
+		config = fmt.Sprintf(`
 server {
-    listen 80;
-    server_name %s;
+listen 80;
+server_name %s;
 `, domain)
+	}
+
+	// Добавляем маршруты
+	for _, routeInterface := range routes {
+		routeData, ok := routeInterface.(map[string]interface{})
+		if !ok {
+			continue
 		}
 
-		// Добавляем маршруты
-		for _, routeInterface := range routes {
-			routeData, ok := routeInterface.(map[string]interface{})
-			if !ok {
-				continue
-			}
+		path, ok := routeData["path"].(string)
+		if !ok {
+			path = "/"
+		}
 
-			path, ok := routeData["path"].(string)
-			if !ok {
-				path = "/"
-			}
+		containerName, ok := routeData["container_name"].(string)
+		if !ok {
+			continue
+		}
 
-			containerName, ok := routeData["container_name"].(string)
-			if !ok {
-				continue
-			}
+		port, ok := routeData["port"].(string)
+		if !ok {
+			continue
+		}
 
-			port, ok := routeData["port"].(string)
-			if !ok {
-				continue
-			}
-
-			config += fmt.Sprintf(`
-    location %s {
-        proxy_pass http://%s:%s;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $server_name;
-    }
+		config += fmt.Sprintf(`
+location %s {
+	proxy_pass http://%s:%s;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+	proxy_set_header X-Forwarded-Proto $scheme;
+	proxy_set_header X-Forwarded-Host $server_name;
+}
 `, path, containerName, port)
-		}
+	}
 
-		config += `
+	config += `
 }
 `
 
-		// Записываем конфигурацию в файл
-		configPath := fmt.Sprintf("conf.d/%s.conf", domain)
-		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
-			errMsg := fmt.Sprintf("Failed to write nginx config for %s: %v", domain, err)
-			return nil, &errMsg, ActionStatusFailed
-		}
+	// Записываем конфигурацию в файл
+	configPath := fmt.Sprintf("conf.d/%s.conf", domain)
+	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		errMsg := fmt.Sprintf("Failed to write nginx config for %s: %v", domain, err)
+		return nil, &errMsg, ActionStatusFailed
 	}
 
 	// Перезапускаем NGINX контейнер
