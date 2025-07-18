@@ -29,8 +29,8 @@ func NewDomainHandler(domainService *domains.Service) *DomainHandler {
 // @Produce json
 // @Param domain body models.CreateDomainRequest true "Данные домена"
 // @Success 201 {object} models.Domain
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains [post]
 func (h *DomainHandler) CreateDomain(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateDomainRequest
@@ -55,8 +55,8 @@ func (h *DomainHandler) CreateDomain(w http.ResponseWriter, r *http.Request) {
 // @Description Возвращает список всех доменов с их маршрутами
 // @Tags domains
 // @Produce json
-// @Success 200 {object} models.DomainListResponse
-// @Failure 500 {object} ErrorResponse
+// @Success 200 {object} models.DomainListResponse``
+// @Failure 500 
 // @Router /api/domains [get]
 func (h *DomainHandler) GetDomains(w http.ResponseWriter, r *http.Request) {
 	domains, err := h.domainService.GetDomains()
@@ -85,8 +85,8 @@ func (h *DomainHandler) GetDomains(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param id path string true "ID домена"
 // @Success 200 {object} models.DomainDetail
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 404 
+// @Failure 500 
 // @Router /api/domains/{id} [get]
 func (h *DomainHandler) GetDomain(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -115,9 +115,9 @@ func (h *DomainHandler) GetDomain(w http.ResponseWriter, r *http.Request) {
 // @Param id path string true "ID домена"
 // @Param domain body models.UpdateDomainRequest true "Данные для обновления"
 // @Success 200 {object} models.Domain
-// @Failure 400 {object} ErrorResponse
-// @Failure 404 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 404 
+// @Failure 500 
 // @Router /api/domains/{id} [put]
 func (h *DomainHandler) UpdateDomain(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -149,8 +149,8 @@ func (h *DomainHandler) UpdateDomain(w http.ResponseWriter, r *http.Request) {
 // @Tags domains
 // @Param id path string true "ID домена"
 // @Success 204 "No Content"
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains/{id} [delete]
 func (h *DomainHandler) DeleteDomain(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -177,8 +177,8 @@ func (h *DomainHandler) DeleteDomain(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Param route body models.CreateDomainRouteRequest true "Данные маршрута"
 // @Success 201 {object} models.DomainRoute
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains/routes [post]
 func (h *DomainHandler) CreateDomainRoute(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateDomainRouteRequest
@@ -205,8 +205,8 @@ func (h *DomainHandler) CreateDomainRoute(w http.ResponseWriter, r *http.Request
 // @Produce json
 // @Param domain_id path string true "ID домена"
 // @Success 200 {object} models.DomainRouteListResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains/{domain_id}/routes [get]
 func (h *DomainHandler) GetDomainRoutes(w http.ResponseWriter, r *http.Request) {
 	domainIDStr := chi.URLParam(r, "domain_id")
@@ -240,8 +240,8 @@ func (h *DomainHandler) GetDomainRoutes(w http.ResponseWriter, r *http.Request) 
 // @Param id path string true "ID маршрута"
 // @Param route body models.UpdateDomainRouteRequest true "Данные для обновления"
 // @Success 200 {object} models.DomainRoute
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains/routes/{id} [put]
 func (h *DomainHandler) UpdateDomainRoute(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -273,8 +273,8 @@ func (h *DomainHandler) UpdateDomainRoute(w http.ResponseWriter, r *http.Request
 // @Tags domain-routes
 // @Param id path string true "ID маршрута"
 // @Success 204 "No Content"
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains/routes/{id} [delete]
 func (h *DomainHandler) DeleteDomainRoute(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
@@ -300,8 +300,8 @@ func (h *DomainHandler) DeleteDomainRoute(w http.ResponseWriter, r *http.Request
 // @Produce json
 // @Param agent_id path string true "ID агента"
 // @Success 200 {object} models.AgentNginxConfig
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/agents/{agent_id}/nginx-config [get]
 func (h *DomainHandler) GetAgentNginxConfig(w http.ResponseWriter, r *http.Request) {
 	agentIDStr := chi.URLParam(r, "agent_id")
@@ -328,8 +328,8 @@ func (h *DomainHandler) GetAgentNginxConfig(w http.ResponseWriter, r *http.Reque
 // @Produce json
 // @Param id path string true "ID домена"
 // @Success 200 {object} models.DomainStatus
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
+// @Failure 400 
+// @Failure 500 
 // @Router /api/domains/{id}/status [get]
 func (h *DomainHandler) GetDomainStatus(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
