@@ -118,7 +118,7 @@ export default function Dashboard() {
       hour: '2-digit', 
       minute: '2-digit' 
     }),
-    cpu: point.cpu,
+    cpu: point.cpu * 100,
     memory: point.memory
   }))
 

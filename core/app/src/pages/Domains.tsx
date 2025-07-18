@@ -40,7 +40,6 @@ const Domains: React.FC = () => {
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [showRouteForm, setShowRouteForm] = useState(false);
 
-  console.log(agents);
 
   // Формы
   const [createForm, setCreateForm] = useState({
@@ -63,8 +62,7 @@ const Domains: React.FC = () => {
   const fetchDomains = async () => {
     try {
       const response = await api.get('/api/domains');
-      console.log('Domains response:', response.data);
-      setDomains(response.data.domains || []);
+      setDomains(response.data || []);
     } catch (error) {
       console.error('Error fetching domains:', error);
       setDomains([]);
@@ -76,8 +74,7 @@ const Domains: React.FC = () => {
   const fetchAgents = async () => {
     try {
       const response = await api.get('/api/agents');
-      console.log('Agents response:', response.data);
-      setAgents(response.data.agents || []);
+      setAgents(response.data || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
       setAgents([]);
