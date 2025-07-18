@@ -14,6 +14,20 @@ type Service struct {
 	db *sql.DB
 }
 
+// createAction создает действие для агента
+func (s *Service) createAction(agentID uuid.UUID, actionType string, payload map[string]interface{}) error {
+	_, err := s.db.Exec(`
+		INSERT INTO actions (id, agent_id, type, payload, status, created)
+		VALUES (gen_random_uuid(), $1, $2, $3, 'pending', NOW())
+	`, agentID, actionType, payload)
+
+	if err != nil {
+		return fmt.Errorf("failed to create action: %v", err)
+	}
+
+	return nil
+}
+
 func NewService(db *sql.DB) *Service {
 	return &Service{db: db}
 }
@@ -178,6 +192,14 @@ func (s *Service) UpdateDomain(id uuid.UUID, req *models.UpdateDomainRequest) (*
 		return nil, fmt.Errorf("failed to update domain: %v", err)
 	}
 
+	// Создаем действие для обновления nginx конфигурации при изменении SSL
+	if req.SSLEnabled != nil {
+		if err := s.createNginxUpdateAction(id); err != nil {
+			// Логируем ошибку, но не прерываем обновление домена
+			fmt.Printf("Warning: failed to create nginx update action: %v\n", err)
+		}
+	}
+
 	return &domain.Domain, nil
 }
 
@@ -214,6 +236,12 @@ func (s *Service) CreateDomainRoute(req *models.CreateDomainRouteRequest) (*mode
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create domain route: %v", err)
+	}
+
+	// Создаем действие для обновления nginx конфигурации
+	if err := s.createNginxUpdateAction(req.DomainID); err != nil {
+		// Логируем ошибку, но не прерываем создание маршрута
+		fmt.Printf("Warning: failed to create nginx update action: %v\n", err)
 	}
 
 	return route, nil
@@ -287,16 +315,93 @@ func (s *Service) UpdateDomainRoute(id uuid.UUID, req *models.UpdateDomainRouteR
 		return nil, fmt.Errorf("failed to update domain route: %v", err)
 	}
 
+	// Создаем действие для обновления nginx конфигурации
+	if err := s.createNginxUpdateAction(route.DomainID); err != nil {
+		// Логируем ошибку, но не прерываем обновление маршрута
+		fmt.Printf("Warning: failed to create nginx update action: %v\n", err)
+	}
+
 	return &route, nil
 }
 
 // DeleteDomainRoute удаляет маршрут домена
 func (s *Service) DeleteDomainRoute(id uuid.UUID) error {
-	_, err := s.db.Exec("DELETE FROM domain_routes WHERE id = $1", id)
+	// Получаем domain_id перед удалением
+	var domainID uuid.UUID
+	err := s.db.QueryRow("SELECT domain_id FROM domain_routes WHERE id = $1", id).Scan(&domainID)
+	if err != nil {
+		return fmt.Errorf("failed to get domain_id for route: %v", err)
+	}
+
+	// Удаляем маршрут
+	_, err = s.db.Exec("DELETE FROM domain_routes WHERE id = $1", id)
 	if err != nil {
 		return fmt.Errorf("failed to delete domain route: %v", err)
 	}
+
+	// Создаем действие для обновления nginx конфигурации
+	if err := s.createNginxUpdateAction(domainID); err != nil {
+		// Логируем ошибку, но не прерываем удаление маршрута
+		fmt.Printf("Warning: failed to create nginx update action: %v\n", err)
+	}
+
 	return nil
+}
+
+// createNginxUpdateAction создает действие для обновления nginx конфигурации
+func (s *Service) createNginxUpdateAction(domainID uuid.UUID) error {
+	// Получаем информацию о домене
+	var domainName string
+	var agentID uuid.UUID
+	var sslEnabled bool
+
+	err := s.db.QueryRow(`
+		SELECT d.name, d.agent_id, d.ssl_enabled
+		FROM domains d
+		WHERE d.id = $1
+	`, domainID).Scan(&domainName, &agentID, &sslEnabled)
+
+	if err != nil {
+		return fmt.Errorf("failed to get domain info: %v", err)
+	}
+
+	// Получаем все маршруты домена
+	rows, err := s.db.Query(`
+		SELECT container_name, port, path
+		FROM domain_routes
+		WHERE domain_id = $1 AND is_active = true
+		ORDER BY path
+	`, domainID)
+
+	if err != nil {
+		return fmt.Errorf("failed to get domain routes: %v", err)
+	}
+	defer rows.Close()
+
+	var routes []map[string]interface{}
+	for rows.Next() {
+		var containerName, port, path string
+		err := rows.Scan(&containerName, &port, &path)
+		if err != nil {
+			return fmt.Errorf("failed to scan route: %v", err)
+		}
+
+		routes = append(routes, map[string]interface{}{
+			"container_name": containerName,
+			"port":           port,
+			"path":           path,
+		})
+	}
+
+	// Создаем payload для действия
+	payload := map[string]interface{}{
+		"domain":      domainName,
+		"ssl_enabled": sslEnabled,
+		"routes":      routes,
+	}
+
+	// Создаем действие
+	return s.createAction(agentID, "update_nginx_config", payload)
 }
 
 // GetAgentNginxConfig получает конфигурацию nginx для агента
