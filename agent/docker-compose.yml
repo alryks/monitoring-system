@@ -13,12 +13,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/host
-      - ./conf.d:/root/conf.d
     pid: host
+    network_mode: host
     privileged: true
     restart: unless-stopped
-    networks:
-      - host
     
   nginx:
     image: nginx:alpine
@@ -31,5 +29,4 @@ services:
     restart: unless-stopped
     depends_on:
       - agent 
-    networks:
-      - host
+    network_mode: host
