@@ -40,6 +40,8 @@ const Domains: React.FC = () => {
   const [selectedDomain, setSelectedDomain] = useState<Domain | null>(null);
   const [showRouteForm, setShowRouteForm] = useState(false);
 
+  console.log(agents);
+
   // Формы
   const [createForm, setCreateForm] = useState({
     name: '',
