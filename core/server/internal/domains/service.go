@@ -117,7 +117,11 @@ func (s *Service) GetDomains() ([]*models.DomainDetail, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get domain routes: %v", err)
 		}
-		domain.Routes = routes
+		if routes == nil {
+			domain.Routes = []models.DomainRoute{}
+		} else {
+			domain.Routes = routes
+		}
 
 		domains = append(domains, domain)
 	}

@@ -35,7 +35,6 @@ type DomainRoute struct {
 // DomainDetail представляет детальную информацию о домене
 type DomainDetail struct {
 	Domain
-	Agent  Agent         `json:"agent"`
 	Routes []DomainRoute `json:"routes"`
 }
 
