@@ -61,6 +61,7 @@ const Domains: React.FC = () => {
   const fetchDomains = async () => {
     try {
       const response = await api.get('/api/domains');
+      console.log('Domains response:', response.data);
       setDomains(response.data.domains || []);
     } catch (error) {
       console.error('Error fetching domains:', error);
@@ -73,6 +74,7 @@ const Domains: React.FC = () => {
   const fetchAgents = async () => {
     try {
       const response = await api.get('/api/agents');
+      console.log('Agents response:', response.data);
       setAgents(response.data.agents || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
@@ -184,7 +186,7 @@ const Domains: React.FC = () => {
                   <option value="">Select Agent</option>
                   {agents && agents.map(agent => (
                     <option key={agent.id} value={agent.id}>
-                      {agent.name} ({agent.public_ip})
+                      {agent.name} {agent.public_ip ? `(${agent.public_ip})` : ''}
                     </option>
                   ))}
                 </select>
