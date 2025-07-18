@@ -14,9 +14,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /:/host
     pid: host
-    network_mode: host
     privileged: true
     restart: unless-stopped
+    networks:
+      - agent
     
   nginx:
     image: nginx:alpine
@@ -28,5 +29,9 @@ services:
       - ./conf.d:/etc/nginx/conf.d:ro
     restart: unless-stopped
     depends_on:
-      - agent 
-    network_mode: host
+      - agent
+    networks:
+      - agent
+
+networks:
+  agent:
