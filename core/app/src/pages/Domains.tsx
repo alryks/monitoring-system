@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import styles from './Domains.module.css';
+import styles from './api/domains.module.css';
 
 interface Domain {
   id: string;
@@ -60,7 +60,7 @@ const Domains: React.FC = () => {
 
   const fetchDomains = async () => {
     try {
-      const response = await api.get('/domains');
+      const response = await api.get('/api/domains');
       setDomains(response.data.domains || []);
     } catch (error) {
       console.error('Error fetching domains:', error);
@@ -72,7 +72,7 @@ const Domains: React.FC = () => {
 
   const fetchAgents = async () => {
     try {
-      const response = await api.get('/agents');
+      const response = await api.get('/api/agents');
       setAgents(response.data.agents || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
@@ -83,7 +83,7 @@ const Domains: React.FC = () => {
   const handleCreateDomain = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await api.post('/domains', createForm);
+      await api.post('/api/domains', createForm);
       setShowCreateForm(false);
       setCreateForm({ name: '', agent_id: '', ssl_enabled: false });
       fetchDomains();
@@ -97,7 +97,7 @@ const Domains: React.FC = () => {
     if (!selectedDomain) return;
 
     try {
-      await api.post('/domains/routes', {
+      await api.post('/api/domains/routes', {
         domain_id: selectedDomain.id,
         ...routeForm
       });
@@ -113,7 +113,7 @@ const Domains: React.FC = () => {
     if (!confirm('Are you sure you want to delete this domain?')) return;
 
     try {
-      await api.delete(`/domains/${domainId}`);
+      await api.delete(`/api/domains/${domainId}`);
       fetchDomains();
     } catch (error) {
       console.error('Error deleting domain:', error);
@@ -124,7 +124,7 @@ const Domains: React.FC = () => {
     if (!confirm('Are you sure you want to delete this route?')) return;
 
     try {
-      await api.delete(`/domains/routes/${routeId}`);
+      await api.delete(`/api/domains/routes/${routeId}`);
       fetchDomains();
     } catch (error) {
       console.error('Error deleting route:', error);
@@ -133,7 +133,7 @@ const Domains: React.FC = () => {
 
   const toggleDomainStatus = async (domain: Domain) => {
     try {
-      await api.put(`/domains/${domain.id}`, {
+      await api.put(`/api/domains/${domain.id}`, {
         is_active: !domain.is_active
       });
       fetchDomains();
