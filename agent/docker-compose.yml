@@ -36,3 +36,4 @@ services:
   
 networks:
   agent:
+    driver: host
