@@ -2,6 +2,7 @@ package domains
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -16,10 +17,16 @@ type Service struct {
 
 // createAction создает действие для агента
 func (s *Service) createAction(agentID uuid.UUID, actionType string, payload map[string]interface{}) error {
-	_, err := s.db.Exec(`
+	// Сериализуем payload в JSON
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %v", err)
+	}
+
+	_, err = s.db.Exec(`
 		INSERT INTO actions (id, agent_id, type, payload, status, created)
 		VALUES (gen_random_uuid(), $1, $2, $3, 'pending', NOW())
-	`, agentID, actionType, payload)
+	`, agentID, actionType, payloadJSON)
 
 	if err != nil {
 		return fmt.Errorf("failed to create action: %v", err)
