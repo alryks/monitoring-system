@@ -1077,8 +1077,8 @@ server {
     listen 443 ssl;
     server_name %s;
     
-    ssl_certificate conf.d/%s/pub.key;
-    ssl_certificate_key conf.d/%s/priv.key;
+    ssl_certificate conf.d/%s/cert.pem;
+    ssl_certificate_key conf.d/%s/key.pem;
     
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
@@ -1134,13 +1134,13 @@ func saveSSLCertificates(domain string, payload map[string]interface{}) error {
 	}
 
 	// Сохраняем приватный ключ
-	privKeyPath := fmt.Sprintf("%s/priv.key", sslDir)
+	privKeyPath := fmt.Sprintf("%s/key.pem", sslDir)
 	if err := os.WriteFile(privKeyPath, []byte(privateKey), 0600); err != nil {
 		return fmt.Errorf("failed to save private key: %v", err)
 	}
 
 	// Сохраняем публичный ключ
-	pubKeyPath := fmt.Sprintf("%s/pub.key", sslDir)
+	pubKeyPath := fmt.Sprintf("%s/cert.pem", sslDir)
 	if err := os.WriteFile(pubKeyPath, []byte(publicKey), 0644); err != nil {
 		return fmt.Errorf("failed to save public key: %v", err)
 	}
@@ -1232,8 +1232,8 @@ server {
 listen 443 ssl;
 server_name %s;
 
-ssl_certificate conf.d/%s/pub.key;
-ssl_certificate_key conf.d/%s/priv.key;
+ssl_certificate conf.d/%s/cert.pem;
+ssl_certificate_key conf.d/%s/key.pem;
 
 ssl_protocols TLSv1.2 TLSv1.3;
 ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
