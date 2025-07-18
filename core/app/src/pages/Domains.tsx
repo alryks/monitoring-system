@@ -73,9 +73,10 @@ const Domains: React.FC = () => {
   const fetchAgents = async () => {
     try {
       const response = await api.get('/agents');
-      setAgents(response.data.agents);
+      setAgents(response.data.agents || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
+      setAgents([]);
     }
   };
 
@@ -181,7 +182,7 @@ const Domains: React.FC = () => {
                   required
                 >
                   <option value="">Select Agent</option>
-                  {agents.map(agent => (
+                  {agents && agents.map(agent => (
                     <option key={agent.id} value={agent.id}>
                       {agent.name} ({agent.public_ip})
                     </option>
@@ -288,7 +289,7 @@ const Domains: React.FC = () => {
             </div>
             
             <div className={styles.domainInfo}>
-              <p><strong>Agent:</strong> {domain.agent_name} ({domain.agent_ip})</p>
+              <p><strong>Agent:</strong> {domain.agent_name || 'Unknown'} ({domain.agent_ip})</p>
               <p><strong>SSL:</strong> {domain.ssl_enabled ? 'Enabled' : 'Disabled'}</p>
               <p><strong>Created:</strong> {new Date(domain.created).toLocaleDateString()}</p>
             </div>
@@ -299,7 +300,7 @@ const Domains: React.FC = () => {
                 <p className={styles.noRoutes}>No routes configured</p>
               ) : (
                 <div className={styles.routesList}>
-                  {domain.routes.map(route => (
+                  {domain.routes && domain.routes.map(route => (
                     <div key={route.id} className={styles.routeItem}>
                       <span className={styles.routePath}>{route.path}</span>
                       <span className={styles.routeTarget}>
