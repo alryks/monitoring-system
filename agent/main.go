@@ -1151,7 +1151,7 @@ func saveSSLCertificates(domain string, payload map[string]interface{}) error {
 // restartNginxContainer перезапускает NGINX контейнер
 func restartNginxContainer() error {
 	// Используем docker-compose для перезапуска nginx контейнера
-	cmd := exec.Command("docker-compose", "restart", "nginx")
+	cmd := exec.Command("docker", "restart", "agent-nginx-1")
 	cmd.Dir = "." // Убеждаемся, что команда выполняется в директории с docker-compose.yml
 	return cmd.Run()
 }
