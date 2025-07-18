@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"monitoring-system/core/server/internal/models"
+
+	"github.com/google/uuid"
 )
 
 type Service struct {
@@ -19,9 +20,17 @@ func NewService(db *sql.DB) *Service {
 
 // CreateDomain создает новый домен
 func (s *Service) CreateDomain(req *models.CreateDomainRequest) (*models.Domain, error) {
-	// Получаем IP агента
+	// Получаем IP агента из последнего ping
 	var agentIP string
-	err := s.db.QueryRow("SELECT public_ip FROM agents WHERE id = $1", req.AgentID).Scan(&agentIP)
+	err := s.db.QueryRow(`
+		SELECT nm.public_ip 
+		FROM agents a
+		JOIN agent_pings ap ON a.id = ap.agent_id
+		JOIN network_metrics nm ON ap.id = nm.ping_id
+		WHERE a.id = $1
+		ORDER BY ap.created DESC
+		LIMIT 1
+	`, req.AgentID).Scan(&agentIP)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent IP: %v", err)
 	}
@@ -130,9 +139,17 @@ func (s *Service) UpdateDomain(id uuid.UUID, req *models.UpdateDomainRequest) (*
 	}
 	if req.AgentID != nil {
 		domain.AgentID = *req.AgentID
-		// Обновляем IP агента
+		// Обновляем IP агента из последнего ping
 		var agentIP string
-		err := s.db.QueryRow("SELECT public_ip FROM agents WHERE id = $1", domain.AgentID).Scan(&agentIP)
+		err := s.db.QueryRow(`
+			SELECT nm.public_ip 
+			FROM agents a
+			JOIN agent_pings ap ON a.id = ap.agent_id
+			JOIN network_metrics nm ON ap.id = nm.ping_id
+			WHERE a.id = $1
+			ORDER BY ap.created DESC
+			LIMIT 1
+		`, domain.AgentID).Scan(&agentIP)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get agent IP: %v", err)
 		}
