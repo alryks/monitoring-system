@@ -12,7 +12,7 @@ services:
       - HOST_VAR=/host/var
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /:/host
+      - ./conf.d:/root/conf.d
     pid: host
     network_mode: host
     privileged: true
