@@ -79,7 +79,7 @@ func (rp *ReverseProxy) setupRoutes() {
 	rp.router.PathPrefix("/api/").HandlerFunc(rp.proxyToServer)
 
 	// Динамические маршруты для доменов
-	rp.router.HandleFunc("/", rp.handleDomainRequest)
+	rp.router.HandleFunc("/{path:.*}", rp.handleDomainRequest)
 }
 
 func (rp *ReverseProxy) handleDomainRequest(w http.ResponseWriter, r *http.Request) {
