@@ -2368,6 +2368,27 @@ func (h *Handlers) GetDomains(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// GetDomainsPublic получает домены без аутентификации (для reverse proxy)
+func (h *Handlers) GetDomainsPublic(w http.ResponseWriter, r *http.Request) {
+	domains, err := h.domain.GetDomains()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.DomainListResponse{
+		Domains: make([]models.DomainDetail, len(domains)),
+		Total:   len(domains),
+	}
+
+	for i, domain := range domains {
+		response.Domains[i] = *domain
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 // CreateDomain создает новый домен
 func (h *Handlers) CreateDomain(w http.ResponseWriter, r *http.Request) {
 	var req models.CreateDomainRequest

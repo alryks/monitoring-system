@@ -91,6 +91,7 @@ func main() {
 
 		// Публичные маршруты
 		r.Post("/login", h.Login)
+		r.Get("/domains/public", h.GetDomainsPublic) // Публичный endpoint для reverse proxy
 
 		// Маршруты для агентов (с Bearer токеном)
 		r.Post("/agent/ping", h.AgentPing)

@@ -83,7 +83,7 @@ func (s *SyncService) syncDomains() error {
 
 // fetchDomains получает домены с сервера
 func (s *SyncService) fetchDomains() ([]DomainDetail, error) {
-	url := fmt.Sprintf("%s/api/domains", s.serverURL)
+	url := fmt.Sprintf("%s/api/domains/public", s.serverURL)
 
 	resp, err := s.client.Get(url)
 	if err != nil {

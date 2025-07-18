@@ -61,9 +61,10 @@ const Domains: React.FC = () => {
   const fetchDomains = async () => {
     try {
       const response = await api.get('/domains');
-      setDomains(response.data.domains);
+      setDomains(response.data.domains || []);
     } catch (error) {
       console.error('Error fetching domains:', error);
+      setDomains([]);
     } finally {
       setLoading(false);
     }
@@ -257,7 +258,7 @@ const Domains: React.FC = () => {
 
       {/* Domains List */}
       <div className={styles.domainsList}>
-        {domains.map(domain => (
+        {domains && domains.length > 0 && domains.map(domain => (
           <div key={domain.id} className={styles.domainCard}>
             <div className={styles.domainHeader}>
               <h3>{domain.name}</h3>
@@ -294,7 +295,7 @@ const Domains: React.FC = () => {
 
             <div className={styles.routesSection}>
               <h4>Routes:</h4>
-              {domain.routes.length === 0 ? (
+              {!domain.routes || domain.routes.length === 0 ? (
                 <p className={styles.noRoutes}>No routes configured</p>
               ) : (
                 <div className={styles.routesList}>
