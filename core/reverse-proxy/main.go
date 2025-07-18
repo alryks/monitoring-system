@@ -90,13 +90,21 @@ func (rp *ReverseProxy) handleDomainRequest(w http.ResponseWriter, r *http.Reque
 		host = strings.Split(host, ":")[0]
 	}
 
+	// Проверяем, является ли это доменом приложения
+	appDomain := os.Getenv("APP_DOMAIN")
+	if appDomain != "" && (host == appDomain || host == "localhost" || host == "127.0.0.1") {
+		// Если это домен приложения, проксируем на приложение
+		rp.proxyToApp(w, r)
+		return
+	}
+
 	rp.domainRoutesM.RLock()
 	domainRoute, exists := rp.domainRoutes[host]
 	rp.domainRoutesM.RUnlock()
 
 	if !exists {
-		// Если домен не найден, проксируем на приложение
-		rp.proxyToApp(w, r)
+		// Если домен не найден, возвращаем 404
+		http.Error(w, "Domain not found", http.StatusNotFound)
 		return
 	}
 
