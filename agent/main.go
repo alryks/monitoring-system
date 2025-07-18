@@ -15,7 +15,6 @@ import (
 
 	"bufio"
 	"os/exec"
-	"path/filepath"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -51,12 +50,16 @@ type ActionResponse struct {
 
 // Константы для типов действий
 const (
-	ActionTypeStartContainer  = "start_container"
-	ActionTypeStopContainer   = "stop_container"
-	ActionTypeRemoveContainer = "remove_container"
-	ActionTypeRemoveImage     = "remove_image"
-	ActionTypeRestartNginx    = "restart_nginx"
-	ActionTypeWriteFile       = "write_file"
+	ActionTypeStartContainer    = "start_container"
+	ActionTypeStopContainer     = "stop_container"
+	ActionTypeRemoveContainer   = "remove_container"
+	ActionTypeRemoveImage       = "remove_image"
+	ActionTypePullImage         = "pull_image"
+	ActionTypeRestartContainer  = "restart_container"
+	ActionTypeCreateNginxConfig = "create_nginx_config"
+	ActionTypeDeleteNginxConfig = "delete_nginx_config"
+	ActionTypeUpdateNginxConfig = "update_nginx_config"
+	ActionTypeGetNginxConfig    = "get_nginx_config"
 )
 
 // Константы для статусов действий
@@ -635,10 +638,18 @@ func processAction(dockerClient *client.Client, action Action) error {
 		response, errMsg, status = handleRemoveContainer(dockerClient, action.Payload)
 	case ActionTypeRemoveImage:
 		response, errMsg, status = handleRemoveImage(dockerClient, action.Payload)
-	case ActionTypeRestartNginx:
-		response, errMsg, status = handleRestartNginx()
-	case ActionTypeWriteFile:
-		response, errMsg, status = handleWriteFile(action.Payload)
+	case ActionTypePullImage:
+		response, errMsg, status = handlePullImage(dockerClient, action.Payload)
+	case ActionTypeRestartContainer:
+		response, errMsg, status = handleRestartContainer(dockerClient, action.Payload)
+	case ActionTypeCreateNginxConfig:
+		response, errMsg, status = handleCreateNginxConfig(action.Payload)
+	case ActionTypeDeleteNginxConfig:
+		response, errMsg, status = handleDeleteNginxConfig(action.Payload)
+	case ActionTypeUpdateNginxConfig:
+		response, errMsg, status = handleUpdateNginxConfig(action.Payload)
+	case ActionTypeGetNginxConfig:
+		response, errMsg, status = handleGetNginxConfig(action.Payload)
 	default:
 		err := fmt.Sprintf("Unknown action type: %s", action.Type)
 		errMsg = &err
@@ -653,31 +664,35 @@ func processAction(dockerClient *client.Client, action Action) error {
 func handleStartContainer(dockerClient *client.Client, payload map[string]interface{}) (*string, *string, string) {
 	ctx := context.Background()
 
-	// Извлекаем параметры из payload
+	// Проверяем, есть ли container_id для запуска существующего контейнера
+	if containerID, ok := payload["container_id"].(string); ok && containerID != "" {
+		// Запускаем существующий контейнер
+		err := dockerClient.ContainerStart(ctx, containerID, container.StartOptions{})
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to start existing container %s: %v", containerID, err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+
+		successMsg := fmt.Sprintf("Existing container %s started successfully", containerID)
+		return &successMsg, nil, ActionStatusCompleted
+	}
+
+	// Создаем новый контейнер
 	image, ok := payload["image"].(string)
 	if !ok {
-		err := "Image is required"
+		err := "Image is required for new container"
 		return nil, &err, ActionStatusFailed
 	}
 
 	name, ok := payload["name"].(string)
 	if !ok {
-		err := "Name is required"
+		err := "Name is required for new container"
 		return nil, &err, ActionStatusFailed
 	}
 
 	// Создаем конфигурацию контейнера
 	containerConfig := &container.Config{
 		Image: image,
-	}
-
-	// Добавляем порты если указаны
-	if ports, ok := payload["ports"].(map[string]interface{}); ok {
-		exposedPorts := make(nat.PortSet)
-		for port := range ports {
-			exposedPorts[nat.Port(port)] = struct{}{}
-		}
-		containerConfig.ExposedPorts = exposedPorts
 	}
 
 	// Добавляем переменные окружения если указаны
@@ -689,56 +704,114 @@ func handleStartContainer(dockerClient *client.Client, payload map[string]interf
 		}
 	}
 
-	// Создаем конфигурацию хоста
-	hostConfig := &container.HostConfig{}
-
 	// Добавляем порты если указаны
 	if ports, ok := payload["ports"].(map[string]interface{}); ok {
+		exposedPorts := make(nat.PortSet)
 		portBindings := make(nat.PortMap)
+
 		for containerPort, hostPort := range ports {
 			if hostPortStr, ok := hostPort.(string); ok {
-				portBindings[nat.Port(containerPort)] = []nat.PortBinding{
-					{HostPort: hostPortStr},
+				// Парсим порт контейнера (например, "9000/tcp")
+				portParts := strings.Split(containerPort, "/")
+				if len(portParts) == 2 {
+					exposedPorts[nat.Port(containerPort)] = struct{}{}
+
+					// Парсим хост порт (например, "9000:9000" -> "9000")
+					hostPortParts := strings.Split(hostPortStr, ":")
+					if len(hostPortParts) == 2 {
+						portBindings[nat.Port(containerPort)] = []nat.PortBinding{
+							{HostPort: hostPortParts[0]},
+						}
+					} else {
+						// Если формат "9000", используем как есть
+						portBindings[nat.Port(containerPort)] = []nat.PortBinding{
+							{HostPort: hostPortStr},
+						}
+					}
 				}
 			}
 		}
-		hostConfig.PortBindings = portBindings
-	}
 
-	// Добавляем volumes если указаны
-	if volumes, ok := payload["volumes"].(map[string]interface{}); ok {
-		binds := make([]string, 0)
-		for hostPath, containerPath := range volumes {
-			if containerPathStr, ok := containerPath.(string); ok {
-				binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPathStr))
+		containerConfig.ExposedPorts = exposedPorts
+
+		// Создаем конфигурацию хоста
+		hostConfig := &container.HostConfig{
+			PortBindings: portBindings,
+		}
+
+		// Добавляем volumes если указаны
+		if volumes, ok := payload["volumes"].(map[string]interface{}); ok {
+			binds := make([]string, 0)
+			for hostPath, containerPath := range volumes {
+				if containerPathStr, ok := containerPath.(string); ok {
+					binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPathStr))
+				}
+			}
+			hostConfig.Binds = binds
+		}
+
+		// Создаем контейнер
+		resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, name)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to create container: %v", err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+
+		// Запускаем контейнер
+		err = dockerClient.ContainerStart(ctx, resp.ID, container.StartOptions{})
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to start container: %v", err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+
+		// Если указан домен, обновляем nginx конфигурацию
+		if domain, ok := payload["domain"].(string); ok && domain != "" {
+			if err := updateNginxConfig(domain, name); err != nil {
+				log.Printf("Warning: failed to update nginx config: %v", err)
 			}
 		}
-		hostConfig.Binds = binds
-	}
 
-	// Создаем контейнер
-	resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, name)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to create container: %v", err)
-		return nil, &errMsg, ActionStatusFailed
-	}
+		successMsg := fmt.Sprintf("Container %s started successfully with ID: %s", name, resp.ID)
+		return &successMsg, nil, ActionStatusCompleted
+	} else {
+		// Создаем конфигурацию хоста без портов
+		hostConfig := &container.HostConfig{}
 
-	// Запускаем контейнер
-	err = dockerClient.ContainerStart(ctx, resp.ID, container.StartOptions{})
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to start container: %v", err)
-		return nil, &errMsg, ActionStatusFailed
-	}
-
-	// Если указан домен, обновляем nginx конфигурацию
-	if domain, ok := payload["domain"].(string); ok && domain != "" {
-		if err := updateNginxConfig(domain, name); err != nil {
-			log.Printf("Warning: failed to update nginx config: %v", err)
+		// Добавляем volumes если указаны
+		if volumes, ok := payload["volumes"].(map[string]interface{}); ok {
+			binds := make([]string, 0)
+			for hostPath, containerPath := range volumes {
+				if containerPathStr, ok := containerPath.(string); ok {
+					binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPathStr))
+				}
+			}
+			hostConfig.Binds = binds
 		}
-	}
 
-	successMsg := fmt.Sprintf("Container %s started successfully with ID: %s", name, resp.ID)
-	return &successMsg, nil, ActionStatusCompleted
+		// Создаем контейнер
+		resp, err := dockerClient.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, name)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to create container: %v", err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+
+		// Запускаем контейнер
+		err = dockerClient.ContainerStart(ctx, resp.ID, container.StartOptions{})
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to start container: %v", err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+
+		// Если указан домен, обновляем nginx конфигурацию
+		if domain, ok := payload["domain"].(string); ok && domain != "" {
+			if err := updateNginxConfig(domain, name); err != nil {
+				log.Printf("Warning: failed to update nginx config: %v", err)
+			}
+		}
+
+		successMsg := fmt.Sprintf("Container %s started successfully with ID: %s", name, resp.ID)
+		return &successMsg, nil, ActionStatusCompleted
+	}
 }
 
 // handleStopContainer обрабатывает остановку контейнера
@@ -825,53 +898,262 @@ func handleRemoveImage(dockerClient *client.Client, payload map[string]interface
 	return &successMsg, nil, ActionStatusCompleted
 }
 
-// handleRestartNginx обрабатывает перезапуск nginx
-func handleRestartNginx() (*string, *string, string) {
-	// Выполняем команду для перезапуска nginx
-	cmd := exec.Command("systemctl", "restart", "nginx")
-	if err := cmd.Run(); err != nil {
-		errMsg := fmt.Sprintf("Failed to restart nginx: %v", err)
+// handlePullImage обрабатывает загрузку образа
+func handlePullImage(dockerClient *client.Client, payload map[string]interface{}) (*string, *string, string) {
+	ctx := context.Background()
+
+	imageName, ok := payload["image"].(string)
+	if !ok {
+		err := "Image name is required"
+		return nil, &err, ActionStatusFailed
+	}
+
+	tag := "latest"
+	if tagVal, ok := payload["tag"].(string); ok && tagVal != "" {
+		tag = tagVal
+	}
+
+	// Формируем полное имя образа
+	fullImageName := imageName
+	if !strings.Contains(imageName, ":") {
+		fullImageName = fmt.Sprintf("%s:%s", imageName, tag)
+	}
+
+	// Загружаем образ
+	reader, err := dockerClient.ImagePull(ctx, fullImageName, image.PullOptions{})
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to pull image %s: %v", fullImageName, err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+	defer reader.Close()
+
+	// Читаем вывод для логирования
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		// Можно добавить логирование прогресса загрузки
+		// log.Println(scanner.Text())
+	}
+
+	if err := scanner.Err(); err != nil {
+		errMsg := fmt.Sprintf("Error reading pull output: %v", err)
 		return nil, &errMsg, ActionStatusFailed
 	}
 
-	successMsg := "Nginx restarted successfully"
+	successMsg := fmt.Sprintf("Image %s pulled successfully", fullImageName)
 	return &successMsg, nil, ActionStatusCompleted
 }
 
-// handleWriteFile обрабатывает запись в файл
-func handleWriteFile(payload map[string]interface{}) (*string, *string, string) {
-	path, ok := payload["path"].(string)
+// handleRestartContainer обрабатывает перезапуск контейнера
+func handleRestartContainer(dockerClient *client.Client, payload map[string]interface{}) (*string, *string, string) {
+	ctx := context.Background()
+
+	containerID, ok := payload["container_id"].(string)
 	if !ok {
-		err := "Path is required"
+		err := "Container ID is required"
 		return nil, &err, ActionStatusFailed
 	}
 
-	content, ok := payload["content"].(string)
-	if !ok {
-		err := "Content is required"
-		return nil, &err, ActionStatusFailed
+	timeout := 10
+	if timeoutVal, ok := payload["timeout"].(float64); ok {
+		timeout = int(timeoutVal)
 	}
 
-	mode := 0644
-	if modeVal, ok := payload["mode"].(float64); ok {
-		mode = int(modeVal)
-	}
-
-	// Создаем директорию если не существует
-	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		errMsg := fmt.Sprintf("Failed to create directory: %v", err)
+	// Перезапускаем контейнер
+	err := dockerClient.ContainerRestart(ctx, containerID, container.StopOptions{
+		Timeout: &timeout,
+	})
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to restart container: %v", err)
 		return nil, &errMsg, ActionStatusFailed
 	}
 
-	// Записываем файл
-	if err := os.WriteFile(path, []byte(content), os.FileMode(mode)); err != nil {
-		errMsg := fmt.Sprintf("Failed to write file: %v", err)
-		return nil, &errMsg, ActionStatusFailed
-	}
-
-	successMsg := fmt.Sprintf("File %s written successfully", path)
+	successMsg := fmt.Sprintf("Container %s restarted successfully", containerID)
 	return &successMsg, nil, ActionStatusCompleted
+}
+
+// handleCreateNginxConfig создает конфигурацию NGINX
+func handleCreateNginxConfig(payload map[string]interface{}) (*string, *string, string) {
+	domain, ok := payload["domain"].(string)
+	if !ok {
+		err := "Domain is required"
+		return nil, &err, ActionStatusFailed
+	}
+
+	containerName, ok := payload["container_name"].(string)
+	if !ok {
+		err := "Container name is required"
+		return nil, &err, ActionStatusFailed
+	}
+
+	port, ok := payload["port"].(string)
+	if !ok {
+		err := "Port is required"
+		return nil, &err, ActionStatusFailed
+	}
+
+	ssl := false
+	if sslVal, ok := payload["ssl"].(bool); ok {
+		ssl = sslVal
+	}
+
+	// Создаем конфигурацию NGINX
+	config := generateNginxConfig(domain, containerName, port, ssl)
+
+	// Создаем директорию для конфигурации
+	configDir := fmt.Sprintf("conf.d/%s", domain)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		errMsg := fmt.Sprintf("Failed to create config directory: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	// Записываем конфигурацию
+	configPath := fmt.Sprintf("conf.d/%s.conf", domain)
+	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		errMsg := fmt.Sprintf("Failed to write nginx config: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	// Если нужен SSL, сохраняем переданные сертификаты
+	if ssl {
+		if err := saveSSLCertificates(domain, payload); err != nil {
+			errMsg := fmt.Sprintf("Failed to save SSL certificates: %v", err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+	}
+
+	// Перезапускаем NGINX контейнер
+	if err := restartNginxContainer(); err != nil {
+		errMsg := fmt.Sprintf("Failed to restart nginx container: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	successMsg := fmt.Sprintf("Nginx config for %s created successfully", domain)
+	return &successMsg, nil, ActionStatusCompleted
+}
+
+// handleDeleteNginxConfig удаляет конфигурацию NGINX
+func handleDeleteNginxConfig(payload map[string]interface{}) (*string, *string, string) {
+	domain, ok := payload["domain"].(string)
+	if !ok {
+		err := "Domain is required"
+		return nil, &err, ActionStatusFailed
+	}
+
+	// Удаляем конфигурационный файл
+	configPath := fmt.Sprintf("conf.d/%s.conf", domain)
+	if err := os.Remove(configPath); err != nil && !os.IsNotExist(err) {
+		errMsg := fmt.Sprintf("Failed to remove nginx config: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	// Удаляем директорию с SSL сертификатами
+	sslDir := fmt.Sprintf("conf.d/%s", domain)
+	if err := os.RemoveAll(sslDir); err != nil && !os.IsNotExist(err) {
+		errMsg := fmt.Sprintf("Failed to remove SSL directory: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	// Перезапускаем NGINX контейнер
+	if err := restartNginxContainer(); err != nil {
+		errMsg := fmt.Sprintf("Failed to restart nginx container: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	successMsg := fmt.Sprintf("Nginx config for %s deleted successfully", domain)
+	return &successMsg, nil, ActionStatusCompleted
+}
+
+// generateNginxConfig генерирует конфигурацию NGINX
+func generateNginxConfig(domain, containerName, port string, ssl bool) string {
+	if ssl {
+		return fmt.Sprintf(`
+server {
+    listen 80;
+    server_name %s;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name %s;
+    
+    ssl_certificate conf.d/%s/pub.key;
+    ssl_certificate_key conf.d/%s/priv.key;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    
+    location / {
+        proxy_pass http://%s:%s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+    }
+}
+`, domain, domain, domain, domain, containerName, port)
+	}
+
+	return fmt.Sprintf(`
+server {
+    listen 80;
+    server_name %s;
+    
+    location / {
+        proxy_pass http://%s:%s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+`, domain, containerName, port)
+}
+
+// saveSSLCertificates сохраняет переданные SSL сертификаты
+func saveSSLCertificates(domain string, payload map[string]interface{}) error {
+	sslDir := fmt.Sprintf("conf.d/%s", domain)
+
+	// Получаем приватный ключ из payload
+	privateKey, ok := payload["private_key"].(string)
+	if !ok || privateKey == "" {
+		return fmt.Errorf("private_key is required for SSL configuration")
+	}
+
+	// Получаем публичный ключ из payload
+	publicKey, ok := payload["public_key"].(string)
+	if !ok || publicKey == "" {
+		return fmt.Errorf("public_key is required for SSL configuration")
+	}
+
+	// Создаем директорию для SSL сертификатов
+	if err := os.MkdirAll(sslDir, 0755); err != nil {
+		return fmt.Errorf("failed to create SSL directory: %v", err)
+	}
+
+	// Сохраняем приватный ключ
+	privKeyPath := fmt.Sprintf("%s/priv.key", sslDir)
+	if err := os.WriteFile(privKeyPath, []byte(privateKey), 0600); err != nil {
+		return fmt.Errorf("failed to save private key: %v", err)
+	}
+
+	// Сохраняем публичный ключ
+	pubKeyPath := fmt.Sprintf("%s/pub.key", sslDir)
+	if err := os.WriteFile(pubKeyPath, []byte(publicKey), 0644); err != nil {
+		return fmt.Errorf("failed to save public key: %v", err)
+	}
+
+	return nil
+}
+
+// restartNginxContainer перезапускает NGINX контейнер
+func restartNginxContainer() error {
+	// Используем docker-compose для перезапуска nginx контейнера
+	cmd := exec.Command("docker-compose", "restart", "nginx")
+	cmd.Dir = "." // Убеждаемся, что команда выполняется в директории с docker-compose.yml
+	return cmd.Run()
 }
 
 // updateNginxConfig обновляет конфигурацию nginx для нового домена
@@ -913,6 +1195,231 @@ server {
 	// Перезапускаем nginx
 	cmd = exec.Command("systemctl", "reload", "nginx")
 	return cmd.Run()
+}
+
+// handleUpdateNginxConfig обрабатывает обновление конфигурации nginx
+func handleUpdateNginxConfig(payload map[string]interface{}) (*string, *string, string) {
+	// Получаем данные из payload
+	domains, ok := payload["domains"].([]interface{})
+	if !ok {
+		err := "domains array is required"
+		return nil, &err, ActionStatusFailed
+	}
+
+	// Создаем директорию для конфигураций если не существует
+	if err := os.MkdirAll("conf.d", 0755); err != nil {
+		errMsg := fmt.Sprintf("Failed to create conf.d directory: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	// Обрабатываем каждый домен
+	for _, domainInterface := range domains {
+		domainData, ok := domainInterface.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		domain, ok := domainData["domain"].(string)
+		if !ok {
+			continue
+		}
+
+		routes, ok := domainData["routes"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		sslEnabled, _ := domainData["ssl_enabled"].(bool)
+
+		// Генерируем конфигурацию для домена
+		var config string
+		if sslEnabled {
+			config = fmt.Sprintf(`
+server {
+    listen 80;
+    server_name %s;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name %s;
+    
+    ssl_certificate conf.d/%s/pub.key;
+    ssl_certificate_key conf.d/%s/priv.key;
+    
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+`, domain, domain, domain, domain)
+		} else {
+			config = fmt.Sprintf(`
+server {
+    listen 80;
+    server_name %s;
+`, domain)
+		}
+
+		// Добавляем маршруты
+		for _, routeInterface := range routes {
+			routeData, ok := routeInterface.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			path, ok := routeData["path"].(string)
+			if !ok {
+				path = "/"
+			}
+
+			containerName, ok := routeData["container_name"].(string)
+			if !ok {
+				continue
+			}
+
+			port, ok := routeData["port"].(string)
+			if !ok {
+				continue
+			}
+
+			config += fmt.Sprintf(`
+    location %s {
+        proxy_pass http://%s:%s;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+    }
+`, path, containerName, port)
+		}
+
+		config += `
+}
+`
+
+		// Записываем конфигурацию в файл
+		configPath := fmt.Sprintf("conf.d/%s.conf", domain)
+		if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+			errMsg := fmt.Sprintf("Failed to write nginx config for %s: %v", domain, err)
+			return nil, &errMsg, ActionStatusFailed
+		}
+	}
+
+	// Перезапускаем NGINX контейнер
+	if err := restartNginxContainer(); err != nil {
+		errMsg := fmt.Sprintf("Failed to restart nginx container: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	successMsg := "Nginx configuration updated successfully"
+	return &successMsg, nil, ActionStatusCompleted
+}
+
+// handleGetNginxConfig получает текущую конфигурацию nginx
+func handleGetNginxConfig(payload map[string]interface{}) (*string, *string, string) {
+	// Читаем все файлы конфигурации из директории conf.d
+	entries, err := os.ReadDir("conf.d")
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Если директория не существует, возвращаем пустую конфигурацию
+			emptyConfig := `{"domains": []}`
+			return &emptyConfig, nil, ActionStatusCompleted
+		}
+		errMsg := fmt.Sprintf("Failed to read conf.d directory: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	var domains []map[string]interface{}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".conf") {
+			continue
+		}
+
+		// Читаем содержимое файла конфигурации
+		content, err := os.ReadFile(fmt.Sprintf("conf.d/%s", entry.Name()))
+		if err != nil {
+			continue
+		}
+
+		// Извлекаем домен из имени файла
+		domain := strings.TrimSuffix(entry.Name(), ".conf")
+
+		// Парсим конфигурацию для извлечения маршрутов
+		routes := parseNginxConfig(string(content))
+
+		domainConfig := map[string]interface{}{
+			"domain":      domain,
+			"routes":      routes,
+			"ssl_enabled": strings.Contains(string(content), "listen 443 ssl"),
+		}
+
+		domains = append(domains, domainConfig)
+	}
+
+	// Формируем ответ
+	response := map[string]interface{}{
+		"domains": domains,
+	}
+
+	responseJSON, err := json.Marshal(response)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to marshal response: %v", err)
+		return nil, &errMsg, ActionStatusFailed
+	}
+
+	responseStr := string(responseJSON)
+	return &responseStr, nil, ActionStatusCompleted
+}
+
+// parseNginxConfig парсит конфигурацию nginx для извлечения маршрутов
+func parseNginxConfig(config string) []map[string]interface{} {
+	var routes []map[string]interface{}
+
+	lines := strings.Split(config, "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+
+		// Ищем location блоки
+		if strings.HasPrefix(line, "location") {
+			// Извлекаем путь
+			path := strings.TrimSpace(strings.TrimPrefix(line, "location"))
+			path = strings.TrimSpace(strings.TrimSuffix(path, "{"))
+
+			// Ищем proxy_pass в следующих строках
+			for j := i + 1; j < len(lines); j++ {
+				proxyLine := strings.TrimSpace(lines[j])
+				if strings.HasPrefix(proxyLine, "proxy_pass") {
+					// Извлекаем URL из proxy_pass
+					proxyURL := strings.TrimSpace(strings.TrimPrefix(proxyLine, "proxy_pass"))
+					proxyURL = strings.TrimSuffix(proxyURL, ";")
+
+					// Парсим URL для извлечения контейнера и порта
+					if strings.HasPrefix(proxyURL, "http://") {
+						parts := strings.Split(strings.TrimPrefix(proxyURL, "http://"), ":")
+						if len(parts) == 2 {
+							containerName := parts[0]
+							port := strings.TrimSuffix(parts[1], "/")
+
+							route := map[string]interface{}{
+								"path":           path,
+								"container_name": containerName,
+								"port":           port,
+							}
+							routes = append(routes, route)
+						}
+					}
+					break
+				}
+				if strings.TrimSpace(lines[j]) == "}" {
+					break
+				}
+			}
+		}
+	}
+
+	return routes
 }
 
 // sendActionResult отправляет результат выполнения действия на сервер

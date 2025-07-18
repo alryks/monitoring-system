@@ -3,6 +3,9 @@ import { Package, Search, RefreshCw, Server } from 'lucide-react'
 import styles from './Images.module.css'
 import { imagesApi, agentsApi } from '../services/api'
 import type { ImageDetail, Agent } from '../services/api'
+import ImageActions from '../components/ImageActions'
+import PullImageForm from '../components/PullImageForm'
+import StartContainerForm from '../components/StartContainerForm'
 
 export default function Images() {
   const [images, setImages] = useState<ImageDetail[]>([])
@@ -11,6 +14,7 @@ export default function Images() {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [agentFilter, setAgentFilter] = useState<string>('all')
+  const [selectedAgentForPull, setSelectedAgentForPull] = useState<string>('')
 
   const fetchData = async () => {
     try {
@@ -110,6 +114,36 @@ export default function Images() {
         </div>
       </div>
 
+      {/* Секция загрузки образов */}
+      <div className={styles.pullSection}>
+        <div className={styles.pullHeader}>
+          <h3>Загрузить новый образ</h3>
+          <div className={styles.agentSelector}>
+            <label htmlFor="pullAgent">Выберите агента:</label>
+            <select
+              id="pullAgent"
+              value={selectedAgentForPull}
+              onChange={(e) => setSelectedAgentForPull(e.target.value)}
+              className={styles.agentSelect}
+            >
+              <option value="">Выберите агента</option>
+              {agents.map(agent => (
+                <option key={agent.id} value={agent.id}>
+                  {agent.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        {selectedAgentForPull && (
+          <PullImageForm
+            agentId={selectedAgentForPull}
+            onImagePulled={fetchData}
+          />
+        )}
+      </div>
+
       <div className={styles.filters}>
         <div className={styles.searchBox}>
           <Search className={styles.searchIcon} />
@@ -169,6 +203,25 @@ export default function Images() {
                 <span className={styles.value}>{formatDate(image.created)}</span>
               </div>
             </div>
+
+            {image.agent?.id && (
+              <div className={styles.imageActions}>
+                <ImageActions
+                  imageId={image.image_id}
+                  agentId={image.agent.id}
+                  imageName={image.tags[0] || image.image_id}
+                  onActionComplete={fetchData}
+                />
+                <StartContainerForm
+                  agentId={image.agent.id}
+                  imageName={image.tags[0] || image.image_id}
+                  onContainerStarted={() => {
+                    // Обновляем данные после запуска контейнера
+                    fetchData()
+                  }}
+                />
+              </div>
+            )}
           </div>
         ))}
       </div>

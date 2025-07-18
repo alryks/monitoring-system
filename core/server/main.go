@@ -32,6 +32,7 @@ import (
 	"monitoring-system/core/server/internal/auth"
 	"monitoring-system/core/server/internal/config"
 	"monitoring-system/core/server/internal/database"
+	"monitoring-system/core/server/internal/domains"
 	"monitoring-system/core/server/internal/handlers"
 )
 
@@ -48,9 +49,10 @@ func main() {
 
 	// Инициализируем сервисы
 	authService := auth.NewService(cfg.JWTSecret)
+	domainService := domains.NewService(db)
 
 	// Инициализируем обработчики
-	h := handlers.New(db, authService)
+	h := handlers.New(db, authService, domainService)
 
 	// Запускаем периодическую проверку недоступных агентов
 	go func() {
@@ -104,6 +106,7 @@ func main() {
 			r.Put("/agents/{id}", h.UpdateAgent)
 			r.Delete("/agents/{id}", h.DeleteAgent)
 			r.Get("/agents/{id}", h.GetAgentDetail)
+			r.Get("/agents/{id}/nginx-config", h.GetAgentNginxConfig)
 
 			// Метрики и мониторинг
 			r.Get("/agents/{id}/metrics", h.GetAgentMetrics)
@@ -121,6 +124,20 @@ func main() {
 			// Действия (Actions)
 			r.Get("/actions", h.GetActions)
 			r.Post("/actions", h.CreateAction)
+
+			// Домены (Domains)
+			r.Get("/domains", h.GetDomains)
+			r.Post("/domains", h.CreateDomain)
+			r.Get("/domains/{id}", h.GetDomain)
+			r.Put("/domains/{id}", h.UpdateDomain)
+			r.Delete("/domains/{id}", h.DeleteDomain)
+			r.Get("/domains/{id}/status", h.GetDomainStatus)
+
+			// Маршруты доменов (Domain Routes)
+			r.Post("/domains/routes", h.CreateDomainRoute)
+			r.Get("/domains/{domain_id}/routes", h.GetDomainRoutes)
+			r.Put("/domains/routes/{id}", h.UpdateDomainRoute)
+			r.Delete("/domains/routes/{id}", h.DeleteDomainRoute)
 
 			// Уведомления (Notifications)
 			r.Get("/notifications/settings", h.GetNotificationSettings)

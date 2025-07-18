@@ -96,6 +96,65 @@
   font-weight: 400;
 }
 
+.imageActions {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pullSection {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.pullHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pullHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.agentSelector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agentSelector label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.agentSelect {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.agentSelect:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 @media (max-width: 768px) {
   .imagesList {
     grid-template-columns: 1fr;

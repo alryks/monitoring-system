@@ -504,11 +504,28 @@ type RemoveImagePayload struct {
 	Force   bool   `json:"force,omitempty"`
 }
 
+type PullImagePayload struct {
+	Image string `json:"image"`
+	Tag   string `json:"tag,omitempty"`
+}
+
 // Payload для записи файла
-type WriteFilePayload struct {
-	Path    string `json:"path"`
-	Content string `json:"content"`
-	Mode    int    `json:"mode,omitempty"`
+type RestartContainerPayload struct {
+	ContainerID string `json:"container_id"`
+	Timeout     int    `json:"timeout,omitempty"`
+}
+
+type CreateNginxConfigPayload struct {
+	Domain        string `json:"domain"`
+	ContainerName string `json:"container_name"`
+	Port          string `json:"port"`
+	SSL           bool   `json:"ssl,omitempty"`
+	PrivateKey    string `json:"private_key,omitempty"`
+	PublicKey     string `json:"public_key,omitempty"`
+}
+
+type DeleteNginxConfigPayload struct {
+	Domain string `json:"domain"`
 }
 
 // ActionResponse представляет ответ агента на действие
