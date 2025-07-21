@@ -1,11 +1,23 @@
 import { useState, useEffect } from 'react'
-import { Bell, Bot, AlertTriangle, Cpu, HardDrive, Server, Container } from 'lucide-react'
+import { Bell, Bot, AlertTriangle, Cpu, HardDrive, Server, Container, Mail } from 'lucide-react'
 import { notificationsApi, type NotificationSettings } from '../services/api'
 
 export default function Notifications() {
   const [settings, setSettings] = useState<NotificationSettings>({
     telegram_bot_token: '',
     telegram_chat_id: '',
+    email_settings: {
+      enabled: false,
+      smtp_host: '',
+      smtp_port: 587,
+      username: '',
+      password: '',
+      from_email: '',
+      from_name: 'Система мониторинга',
+      to_emails: '',
+      use_tls: true,
+      use_start_tls: true
+    },
     notifications: {
       agent_offline: {
         enabled: false,
@@ -103,7 +115,7 @@ export default function Notifications() {
           Уведомления
         </h1>
         <p style={{ color: '#6b7280' }}>
-          Настройка уведомлений через Telegram бота
+          Настройка уведомлений через Telegram бота и email
         </p>
       </div>
 
@@ -167,19 +179,240 @@ export default function Notifications() {
         </div>
         <button
           onClick={testNotification}
-          disabled={isLoading || !settings.telegram_bot_token || !settings.telegram_chat_id}
+          disabled={isLoading || (!settings.telegram_bot_token && !settings.email_settings.enabled)}
           style={{
             padding: '0.5rem 1rem',
-            backgroundColor: (settings.telegram_bot_token && settings.telegram_chat_id) ? '#3b82f6' : '#9ca3af',
+            backgroundColor: (settings.telegram_bot_token || settings.email_settings.enabled) ? '#3b82f6' : '#9ca3af',
             color: 'white',
             border: 'none',
             borderRadius: '0.375rem',
-            cursor: (settings.telegram_bot_token && settings.telegram_chat_id) ? 'pointer' : 'not-allowed',
+            cursor: (settings.telegram_bot_token || settings.email_settings.enabled) ? 'pointer' : 'not-allowed',
             marginRight: '0.5rem'
           }}
         >
           Отправить тестовое уведомление
         </button>
+      </div>
+
+      {/* Email Settings */}
+      <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '0.5rem', border: '1px solid #e5e7eb', marginBottom: '1rem' }}>
+        <h2 style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Mail size={20} />
+          Email уведомления
+        </h2>
+        
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+            <input
+              type="checkbox"
+              checked={settings.email_settings.enabled}
+              onChange={(e) => setSettings(prev => ({
+                ...prev,
+                email_settings: { ...prev.email_settings, enabled: e.target.checked }
+              }))}
+            />
+            Включить email уведомления
+          </label>
+        </div>
+
+        {settings.email_settings.enabled && (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  SMTP сервер:
+                </label>
+                <input
+                  type="text"
+                  value={settings.email_settings.smtp_host}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, smtp_host: e.target.value }
+                  }))}
+                  placeholder="smtp.gmail.com"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Порт:
+                </label>
+                <input
+                  type="number"
+                  value={settings.email_settings.smtp_port}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, smtp_port: parseInt(e.target.value) || 587 }
+                  }))}
+                  placeholder="587"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Имя пользователя:
+                </label>
+                <input
+                  type="text"
+                  value={settings.email_settings.username}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, username: e.target.value }
+                  }))}
+                  placeholder="your-email@gmail.com"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Пароль:
+                </label>
+                <input
+                  type="password"
+                  value={settings.email_settings.password}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, password: e.target.value }
+                  }))}
+                  placeholder="Ваш пароль или токен приложения"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Email отправителя:
+                </label>
+                <input
+                  type="email"
+                  value={settings.email_settings.from_email}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, from_email: e.target.value }
+                  }))}
+                  placeholder="noreply@yourdomain.com"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                  Имя отправителя:
+                </label>
+                <input
+                  type="text"
+                  value={settings.email_settings.from_name}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, from_name: e.target.value }
+                  }))}
+                  placeholder="Система мониторинга"
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '500' }}>
+                Email получателей:
+              </label>
+              <input
+                type="text"
+                value={settings.email_settings.to_emails}
+                onChange={(e) => setSettings(prev => ({
+                  ...prev,
+                  email_settings: { ...prev.email_settings, to_emails: e.target.value }
+                }))}
+                placeholder="admin@example.com, support@example.com"
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.375rem',
+                  fontSize: '0.875rem'
+                }}
+              />
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                Укажите email адреса через запятую для отправки уведомлений нескольким получателям
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.email_settings.use_tls}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, use_tls: e.target.checked }
+                  }))}
+                />
+                Использовать TLS
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={settings.email_settings.use_start_tls}
+                  onChange={(e) => setSettings(prev => ({
+                    ...prev,
+                    email_settings: { ...prev.email_settings, use_start_tls: e.target.checked }
+                  }))}
+                />
+                Использовать STARTTLS
+              </label>
+            </div>
+
+            <div style={{ padding: '1rem', backgroundColor: '#f3f4f6', borderRadius: '0.375rem', marginBottom: '1rem' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.875rem', fontWeight: '600' }}>Примеры настроек:</h4>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                <p><strong>Gmail:</strong> smtp.gmail.com:587, используйте токен приложения вместо пароля</p>
+                <p><strong>Yandex:</strong> smtp.yandex.ru:465, включите TLS</p>
+                <p><strong>Mail.ru:</strong> smtp.mail.ru:465, включите TLS</p>
+                <p><strong>Outlook:</strong> smtp-mail.outlook.com:587, включите STARTTLS</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Notification Types */}

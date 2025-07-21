@@ -2242,11 +2242,11 @@ func (h *Handlers) UpdateNotificationSettings(w http.ResponseWriter, r *http.Req
 
 // SendTestNotification отправляет тестовое уведомление
 // @Summary Отправка тестового уведомления
-// @Description Отправляет тестовое уведомление в Telegram
+// @Description Отправляет тестовое уведомление в Telegram и/или email
 // @Tags notifications
 // @Produce json
 // @Success 200 {object} map[string]string "Уведомление отправлено"
-// @Failure 400 {string} string "Не настроен токен бота"
+// @Failure 400 {string} string "Не настроены уведомления"
 // @Failure 500 {string} string "Ошибка отправки"
 // @Router /notifications/test [post]
 func (h *Handlers) SendTestNotification(w http.ResponseWriter, r *http.Request) {

@@ -424,8 +424,6 @@ definitions:
     type: object
   models.DomainDetail:
     properties:
-      agent:
-        $ref: '#/definitions/models.Agent'
       agent_id:
         description: ID агента, на котором размещен домен
         type: string
@@ -515,6 +513,30 @@ definitions:
         type: array
       ssl_enabled:
         type: boolean
+    type: object
+  models.EmailSettings:
+    properties:
+      enabled:
+        type: boolean
+      from_email:
+        type: string
+      from_name:
+        type: string
+      password:
+        type: string
+      smtp_host:
+        type: string
+      smtp_port:
+        type: integer
+      to_emails:
+        description: Список email через запятую
+        type: string
+      use_start_tls:
+        type: boolean
+      use_tls:
+        type: boolean
+      username:
+        type: string
     type: object
   models.ImageDetail:
     properties:
@@ -686,6 +708,8 @@ definitions:
     type: object
   models.NotificationSettings:
     properties:
+      email_settings:
+        $ref: '#/definitions/models.EmailSettings'
       notifications:
         $ref: '#/definitions/models.NotificationConfigurations'
       telegram_bot_token:
@@ -1730,7 +1754,7 @@ paths:
       - notifications
   /notifications/test:
     post:
-      description: Отправляет тестовое уведомление в Telegram
+      description: Отправляет тестовое уведомление в Telegram и/или email
       produces:
       - application/json
       responses:
@@ -1741,7 +1765,7 @@ paths:
               type: string
             type: object
         "400":
-          description: Не настроен токен бота
+          description: Не настроены уведомления
           schema:
             type: string
         "500":

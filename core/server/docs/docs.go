@@ -1398,7 +1398,7 @@ const docTemplate = `{
         },
         "/notifications/test": {
             "post": {
-                "description": "Отправляет тестовое уведомление в Telegram",
+                "description": "Отправляет тестовое уведомление в Telegram и/или email",
                 "produces": [
                     "application/json"
                 ],
@@ -1417,7 +1417,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Не настроен токен бота",
+                        "description": "Не настроены уведомления",
                         "schema": {
                             "type": "string"
                         }
@@ -2073,9 +2073,6 @@ const docTemplate = `{
         "models.DomainDetail": {
             "type": "object",
             "properties": {
-                "agent": {
-                    "$ref": "#/definitions/models.Agent"
-                },
                 "agent_id": {
                     "description": "ID агента, на котором размещен домен",
                     "type": "string"
@@ -2206,6 +2203,42 @@ const docTemplate = `{
                 },
                 "ssl_enabled": {
                     "type": "boolean"
+                }
+            }
+        },
+        "models.EmailSettings": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "from_email": {
+                    "type": "string"
+                },
+                "from_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "smtp_host": {
+                    "type": "string"
+                },
+                "smtp_port": {
+                    "type": "integer"
+                },
+                "to_emails": {
+                    "description": "Список email через запятую",
+                    "type": "string"
+                },
+                "use_start_tls": {
+                    "type": "boolean"
+                },
+                "use_tls": {
+                    "type": "boolean"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },
@@ -2467,6 +2500,9 @@ const docTemplate = `{
         "models.NotificationSettings": {
             "type": "object",
             "properties": {
+                "email_settings": {
+                    "$ref": "#/definitions/models.EmailSettings"
+                },
                 "notifications": {
                     "$ref": "#/definitions/models.NotificationConfigurations"
                 },

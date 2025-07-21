@@ -147,7 +147,7 @@ func (rp *ReverseProxy) proxyToAgent(w http.ResponseWriter, r *http.Request, age
 func (rp *ReverseProxy) proxyToServer(w http.ResponseWriter, r *http.Request) {
 	serverURL := os.Getenv("SERVER_URL")
 	if serverURL == "" {
-		serverURL = "http://server:8080"
+		serverURL = "http://server:8000"
 	}
 
 	target, err := url.Parse(serverURL)
@@ -270,7 +270,7 @@ func main() {
 	// Получаем URL сервера из переменной окружения
 	serverURL := os.Getenv("SERVER_URL")
 	if serverURL == "" {
-		serverURL = "http://server:8080"
+		serverURL = "http://server:8000"
 	}
 
 	// Создаем reverse proxy
