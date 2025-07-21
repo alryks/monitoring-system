@@ -553,7 +553,22 @@ type ActionListResponse struct {
 type NotificationSettings struct {
 	TelegramBotToken string                     `json:"telegram_bot_token"`
 	TelegramChatID   string                     `json:"telegram_chat_id"`
+	EmailSettings    EmailSettings              `json:"email_settings"`
 	Notifications    NotificationConfigurations `json:"notifications"`
+}
+
+// EmailSettings представляет настройки email уведомлений
+type EmailSettings struct {
+	Enabled     bool   `json:"enabled"`
+	SMTPHost    string `json:"smtp_host"`
+	SMTPPort    int    `json:"smtp_port"`
+	Username    string `json:"username"`
+	Password    string `json:"password"`
+	FromEmail   string `json:"from_email"`
+	FromName    string `json:"from_name"`
+	ToEmails    string `json:"to_emails"` // Список email через запятую
+	UseTLS      bool   `json:"use_tls"`
+	UseStartTLS bool   `json:"use_start_tls"`
 }
 
 // NotificationConfigurations представляет конфигурации различных типов уведомлений

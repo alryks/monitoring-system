@@ -15,6 +15,7 @@ services:
       - ./conf.d:/root/conf.d
       - /:/host
     pid: host
+    # network_mode: host
     privileged: true
     restart: unless-stopped
     networks:

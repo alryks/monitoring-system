@@ -378,9 +378,23 @@ export const actionsApi = {
 }
 
 // Notification types
+export interface EmailSettings {
+  enabled: boolean
+  smtp_host: string
+  smtp_port: number
+  username: string
+  password: string
+  from_email: string
+  from_name: string
+  to_emails: string
+  use_tls: boolean
+  use_start_tls: boolean
+}
+
 export interface NotificationSettings {
   telegram_bot_token: string
   telegram_chat_id: string
+  email_settings: EmailSettings
   notifications: {
     agent_offline: {
       enabled: boolean
