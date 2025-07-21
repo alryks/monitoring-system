@@ -21,30 +21,8 @@ import (
 type ReverseProxy struct {
 	server        *http.Server
 	router        *mux.Router
-	upstreams     map[string]*Upstream
-	upstreamsM    sync.RWMutex
-	domainRoutes  map[string]*DomainRoute
-	domainRoutesM sync.RWMutex
-}
-
-type Upstream struct {
-	Name      string
-	URL       *url.URL
-	Health    bool
-	LastCheck time.Time
-}
-
-type DomainRoute struct {
-	Domain     string
-	AgentIP    string
-	Routes     []Route
-	SSLEnabled bool
-}
-
-type Route struct {
-	Path          string
-	ContainerName string
-	Port          string
+	domainAgents  map[string]string // domain -> agentIP
+	domainAgentsM sync.RWMutex
 }
 
 func NewReverseProxy() *ReverseProxy {
@@ -52,8 +30,7 @@ func NewReverseProxy() *ReverseProxy {
 
 	proxy := &ReverseProxy{
 		router:       router,
-		upstreams:    make(map[string]*Upstream),
-		domainRoutes: make(map[string]*DomainRoute),
+		domainAgents: make(map[string]string),
 	}
 
 	// Настраиваем маршруты
@@ -75,9 +52,6 @@ func (rp *ReverseProxy) setupRoutes() {
 	// Health check endpoint
 	rp.router.HandleFunc("/health", rp.healthHandler).Methods("GET")
 
-	// API маршруты проксируются на сервер
-	rp.router.PathPrefix("/api/").HandlerFunc(rp.proxyToServer)
-
 	// Динамические маршруты для доменов
 	rp.router.HandleFunc("/{path:.*}", rp.handleDomainRequest)
 }
@@ -93,14 +67,21 @@ func (rp *ReverseProxy) handleDomainRequest(w http.ResponseWriter, r *http.Reque
 	// Проверяем, является ли это доменом приложения
 	appDomain := os.Getenv("APP_DOMAIN")
 	if appDomain != "" && (host == appDomain || host == "localhost" || host == "127.0.0.1") {
+		// Если это домен приложения, проверяем, есть является ли это запрос на API
+		if strings.HasPrefix(r.URL.Path, "/api") {
+			rp.proxyToServer(w, r)
+			return
+		}
+
 		// Если это домен приложения, проксируем на приложение
 		rp.proxyToApp(w, r)
 		return
 	}
 
-	rp.domainRoutesM.RLock()
-	domainRoute, exists := rp.domainRoutes[host]
-	rp.domainRoutesM.RUnlock()
+	// Получаем IP агента для домена
+	rp.domainAgentsM.RLock()
+	agentIP, exists := rp.domainAgents[host]
+	rp.domainAgentsM.RUnlock()
 
 	if !exists {
 		// Если домен не найден, возвращаем 404
@@ -108,34 +89,59 @@ func (rp *ReverseProxy) handleDomainRequest(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Ищем подходящий маршрут
-	var targetRoute *Route
-	requestPath := r.URL.Path
+	// Проксируем запрос на IP агента с измененным Host
+	rp.proxyToAgent(w, r, agentIP, host)
+}
 
-	for _, route := range domainRoute.Routes {
-		if strings.HasPrefix(requestPath, route.Path) {
-			targetRoute = &route
-			break
-		}
-	}
-
-	if targetRoute == nil {
-		// Если маршрут не найден, возвращаем 404
-		http.Error(w, "Route not found", http.StatusNotFound)
-		return
-	}
-
-	// Формируем URL для контейнера
-	containerURL := fmt.Sprintf("http://%s:%s", targetRoute.ContainerName, targetRoute.Port)
-	target, err := url.Parse(containerURL)
+func (rp *ReverseProxy) proxyToAgent(w http.ResponseWriter, r *http.Request, agentIP, originalHost string) {
+	// Формируем URL для агента (используем порт 80 по умолчанию)
+	agentURL := fmt.Sprintf("http://%s:80", agentIP)
+	target, err := url.Parse(agentURL)
 	if err != nil {
-		log.Printf("Error parsing container URL: %v", err)
+		log.Printf("Error parsing agent URL: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	// Проксируем запрос к контейнеру
-	rp.proxyRequest(w, r, target)
+	// Создаем прокси
+	proxy := httputil.NewSingleHostReverseProxy(target)
+
+	// Настраиваем директор для модификации запросов
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+
+		// Устанавливаем оригинальный Host заголовок
+		req.Host = originalHost
+		req.Header.Set("Host", originalHost)
+
+		// Устанавливаем дополнительные заголовки
+		req.Header.Set("X-Forwarded-Host", originalHost)
+		req.Header.Set("X-Forwarded-Proto", "http")
+		if r.Header.Get("X-Real-IP") != "" {
+			req.Header.Set("X-Real-IP", r.Header.Get("X-Real-IP"))
+		} else {
+			req.Header.Set("X-Real-IP", r.RemoteAddr)
+		}
+	}
+
+	// Настраиваем модификатор ответов
+	proxy.ModifyResponse = func(resp *http.Response) error {
+		// Добавляем заголовки безопасности
+		resp.Header.Set("X-Content-Type-Options", "nosniff")
+		resp.Header.Set("X-Frame-Options", "DENY")
+		resp.Header.Set("X-XSS-Protection", "1; mode=block")
+		return nil
+	}
+
+	// Настраиваем обработчик ошибок
+	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
+		log.Printf("Proxy error to agent %s: %v", agentIP, err)
+		http.Error(w, "Service Unavailable", http.StatusServiceUnavailable)
+	}
+
+	// Выполняем проксирование
+	proxy.ServeHTTP(w, r)
 }
 
 func (rp *ReverseProxy) proxyToServer(w http.ResponseWriter, r *http.Request) {
@@ -218,13 +224,13 @@ func (rp *ReverseProxy) healthHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// UpdateDomainRoutes обновляет маршруты доменов
-func (rp *ReverseProxy) UpdateDomainRoutes(routes map[string]*DomainRoute) {
-	rp.domainRoutesM.Lock()
-	defer rp.domainRoutesM.Unlock()
+// UpdateDomainAgents обновляет маппинг доменов на IP агентов
+func (rp *ReverseProxy) UpdateDomainAgents(domainAgents map[string]string) {
+	rp.domainAgentsM.Lock()
+	defer rp.domainAgentsM.Unlock()
 
-	rp.domainRoutes = routes
-	log.Printf("Updated domain routes: %d domains", len(routes))
+	rp.domainAgents = domainAgents
+	log.Printf("Updated domain agents: %d domains", len(domainAgents))
 }
 
 func (rp *ReverseProxy) Start() error {
@@ -257,43 +263,6 @@ func (rp *ReverseProxy) Start() error {
 	return nil
 }
 
-func (rp *ReverseProxy) healthCheck() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			rp.checkUpstreams()
-		}
-	}
-}
-
-func (rp *ReverseProxy) checkUpstreams() {
-	rp.upstreamsM.Lock()
-	defer rp.upstreamsM.Unlock()
-
-	for name, upstream := range rp.upstreams {
-		client := &http.Client{
-			Timeout: 5 * time.Second,
-		}
-
-		resp, err := client.Get(upstream.URL.String() + "/health")
-		if err != nil {
-			log.Printf("Health check failed for %s: %v", name, err)
-			upstream.Health = false
-		} else {
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				upstream.Health = true
-			} else {
-				upstream.Health = false
-			}
-		}
-		upstream.LastCheck = time.Now()
-	}
-}
-
 func main() {
 	// Настраиваем логирование
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -309,9 +278,6 @@ func main() {
 
 	// Создаем сервис синхронизации
 	syncService := NewSyncService(serverURL, proxy)
-
-	// Запускаем health check в фоне
-	go proxy.healthCheck()
 
 	// Запускаем синхронизацию доменов в фоне
 	go syncService.StartSync()

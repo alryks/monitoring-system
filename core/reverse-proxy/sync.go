@@ -51,33 +51,17 @@ func (s *SyncService) syncDomains() error {
 		return fmt.Errorf("failed to fetch domains: %v", err)
 	}
 
-	// Преобразуем в формат для reverse-proxy
-	domainRoutes := make(map[string]*DomainRoute)
+	// Преобразуем в простой маппинг домен -> IP агента
+	domainAgents := make(map[string]string)
 
 	for _, domain := range domains {
-		domainRoute := &DomainRoute{
-			Domain:     domain.Name,
-			AgentIP:    domain.AgentIP,
-			SSLEnabled: domain.SSLEnabled,
-			Routes:     make([]Route, 0),
-		}
-
-		// Добавляем маршруты
-		for _, route := range domain.Routes {
-			domainRoute.Routes = append(domainRoute.Routes, Route{
-				Path:          route.Path,
-				ContainerName: route.ContainerName,
-				Port:          route.Port,
-			})
-		}
-
-		domainRoutes[domain.Name] = domainRoute
+		domainAgents[domain.Name] = domain.AgentIP
 	}
 
-	// Обновляем маршруты в reverse-proxy
-	s.proxy.UpdateDomainRoutes(domainRoutes)
+	// Обновляем маппинг в reverse-proxy
+	s.proxy.UpdateDomainAgents(domainAgents)
 
-	log.Printf("Synced %d domains", len(domainRoutes))
+	log.Printf("Synced %d domains", len(domainAgents))
 	return nil
 }
 
@@ -109,18 +93,8 @@ func (s *SyncService) fetchDomains() ([]DomainDetail, error) {
 
 // DomainDetail представляет детальную информацию о домене (упрощенная версия)
 type DomainDetail struct {
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	AgentIP    string        `json:"agent_ip"`
-	SSLEnabled bool          `json:"ssl_enabled"`
-	Routes     []RouteDetail `json:"routes"`
-}
-
-// RouteDetail представляет детальную информацию о маршруте
-type RouteDetail struct {
-	ID            string `json:"id"`
-	ContainerName string `json:"container_name"`
-	Port          string `json:"port"`
-	Path          string `json:"path"`
-	IsActive      bool   `json:"is_active"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	AgentIP    string `json:"agent_ip"`
+	SSLEnabled bool   `json:"ssl_enabled"`
 }
