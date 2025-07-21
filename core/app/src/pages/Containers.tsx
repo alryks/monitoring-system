@@ -24,6 +24,7 @@ import {
   formatBytes,
   formatMemoryUsageMB
 } from '../services/api'
+import ContainerActions from '../components/ContainerActions'
 import styles from './Containers.module.css'
 
 export default function Containers() {
@@ -366,6 +367,18 @@ export default function Containers() {
                         Перейти к агенту
                       </button>
                     </div>
+
+                    {container.agent_id && (
+                      <div className={styles.containerActionsSection}>
+                        <h4 className={styles.expandedTitle}>Действия</h4>
+                        <ContainerActions
+                          containerId={container.container_id}
+                          agentId={container.agent_id}
+                          status={container.status}
+                          onActionComplete={fetchData}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -381,21 +394,21 @@ export default function Containers() {
               <CheckCircle className={styles.statIcon} />
               <span className={styles.statLabel}>Запущено:</span>
               <span className={styles.statValue}>
-                {containers.filter(c => c.status === 'running').length}
+                {containers.filter(c => c.status.toLowerCase().includes("up") || c.status.toLowerCase().includes("running")).length}
               </span>
             </div>
             <div className={styles.statItem}>
               <XCircle className={styles.statIcon} />
               <span className={styles.statLabel}>Остановлено:</span>
               <span className={styles.statValue}>
-                {containers.filter(c => ['stopped', 'exited'].includes(c.status)).length}
+                {containers.filter(c => c.status.toLowerCase().includes("stopped") || c.status.toLowerCase().includes("exited")).length}
               </span>
             </div>
             <div className={styles.statItem}>
               <AlertCircle className={styles.statIcon} />
               <span className={styles.statLabel}>Другие:</span>
               <span className={styles.statValue}>
-                {containers.filter(c => !['running', 'stopped', 'exited'].includes(c.status)).length}
+                {containers.filter(c => !c.status.toLowerCase().includes("up") && !c.status.toLowerCase().includes("running") && !c.status.toLowerCase().includes("stopped") && !c.status.toLowerCase().includes("exited")).length}
               </span>
             </div>
           </div>

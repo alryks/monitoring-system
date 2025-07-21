@@ -7,7 +7,7 @@ import Containers from './pages/Containers'
 import Images from './pages/Images'
 import Networks from './pages/Networks'
 import Notifications from './pages/Notifications'
-import Actions from './pages/Actions'
+import Domains from './pages/Domains'
 import AgentDetail from './pages/AgentDetail'
 import ContainerDetail from './pages/ContainerDetail'
 import Layout from './components/Layout'
@@ -87,10 +87,10 @@ function AppRoutes() {
           } 
         />
         <Route 
-          path="/actions" 
+          path="/domains" 
           element={
             <ProtectedRoute>
-              <Actions />
+              <Domains />
             </ProtectedRoute>
           } 
         />

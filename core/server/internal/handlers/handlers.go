@@ -15,6 +15,7 @@ import (
 	"github.com/lib/pq"
 
 	"monitoring-system/core/server/internal/auth"
+	"monitoring-system/core/server/internal/domains"
 	"monitoring-system/core/server/internal/models"
 	"monitoring-system/core/server/internal/notifications"
 )
@@ -23,13 +24,15 @@ type Handlers struct {
 	db           *sql.DB
 	auth         *auth.Service
 	notification *notifications.Service
+	domain       *domains.Service
 }
 
-func New(db *sql.DB, authService *auth.Service) *Handlers {
+func New(db *sql.DB, authService *auth.Service, domainService *domains.Service) *Handlers {
 	h := &Handlers{
 		db:           db,
 		auth:         authService,
 		notification: notifications.New(),
+		domain:       domainService,
 	}
 
 	// Создаем админа по умолчанию
@@ -2323,4 +2326,251 @@ func (h *Handlers) CheckOfflineAgents() {
 			log.Printf("Error sending agent offline notification: %v", err)
 		}
 	}
+}
+
+// GetAgentNginxConfig получает конфигурацию nginx для агента
+func (h *Handlers) GetAgentNginxConfig(w http.ResponseWriter, r *http.Request) {
+	agentIDStr := chi.URLParam(r, "id")
+	agentID, err := uuid.Parse(agentIDStr)
+	if err != nil {
+		http.Error(w, "Invalid agent ID", http.StatusBadRequest)
+		return
+	}
+
+	config, err := h.domain.GetAgentNginxConfig(agentID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(config)
+}
+
+// GetDomains получает список всех доменов
+func (h *Handlers) GetDomains(w http.ResponseWriter, r *http.Request) {
+	domains, err := h.domain.GetDomains()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.DomainListResponse{
+		Domains: make([]models.DomainDetail, len(domains)),
+		Total:   len(domains),
+	}
+
+	for i, domain := range domains {
+		response.Domains[i] = *domain
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// GetDomainsPublic получает домены без аутентификации (для reverse proxy)
+func (h *Handlers) GetDomainsPublic(w http.ResponseWriter, r *http.Request) {
+	domains, err := h.domain.GetDomains()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.DomainListResponse{
+		Domains: make([]models.DomainDetail, len(domains)),
+		Total:   len(domains),
+	}
+
+	for i, domain := range domains {
+		response.Domains[i] = *domain
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// CreateDomain создает новый домен
+func (h *Handlers) CreateDomain(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateDomainRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	domain, err := h.domain.CreateDomain(&req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(domain)
+}
+
+// GetDomain получает домен по ID
+func (h *Handlers) GetDomain(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid domain ID", http.StatusBadRequest)
+		return
+	}
+
+	domain, err := h.domain.GetDomainByID(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(domain)
+}
+
+// UpdateDomain обновляет домен
+func (h *Handlers) UpdateDomain(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid domain ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.UpdateDomainRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	domain, err := h.domain.UpdateDomain(id, &req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(domain)
+}
+
+// DeleteDomain удаляет домен
+func (h *Handlers) DeleteDomain(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid domain ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.domain.DeleteDomain(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// GetDomainStatus получает статус домена
+func (h *Handlers) GetDomainStatus(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid domain ID", http.StatusBadRequest)
+		return
+	}
+
+	status, err := h.domain.GetDomainStatus(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(status)
+}
+
+// CreateDomainRoute создает маршрут для домена
+func (h *Handlers) CreateDomainRoute(w http.ResponseWriter, r *http.Request) {
+	var req models.CreateDomainRouteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	route, err := h.domain.CreateDomainRoute(&req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(route)
+}
+
+// GetDomainRoutes получает маршруты домена
+func (h *Handlers) GetDomainRoutes(w http.ResponseWriter, r *http.Request) {
+	domainIDStr := chi.URLParam(r, "domain_id")
+	domainID, err := uuid.Parse(domainIDStr)
+	if err != nil {
+		http.Error(w, "Invalid domain ID", http.StatusBadRequest)
+		return
+	}
+
+	routes, err := h.domain.GetDomainRoutes(domainID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	response := models.DomainRouteListResponse{
+		Routes: routes,
+		Total:  len(routes),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// UpdateDomainRoute обновляет маршрут домена
+func (h *Handlers) UpdateDomainRoute(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid route ID", http.StatusBadRequest)
+		return
+	}
+
+	var req models.UpdateDomainRouteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	route, err := h.domain.UpdateDomainRoute(id, &req)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(route)
+}
+
+// DeleteDomainRoute удаляет маршрут домена
+func (h *Handlers) DeleteDomainRoute(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		http.Error(w, "Invalid route ID", http.StatusBadRequest)
+		return
+	}
+
+	err = h.domain.DeleteDomainRoute(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

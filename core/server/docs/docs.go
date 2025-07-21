@@ -24,9 +24,171 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/actions": {
+            "get": {
+                "description": "Получает список действий с фильтрацией",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "actions"
+                ],
+                "summary": "Получение списка действий",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID агента",
+                        "name": "agent_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Статус действия",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Тип действия",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список действий",
+                        "schema": {
+                            "$ref": "#/definitions/models.ActionListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает новое действие для выполнения агентом",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "actions"
+                ],
+                "summary": "Создание действия",
+                "parameters": [
+                    {
+                        "description": "Данные действия",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateActionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Действие создано",
+                        "schema": {
+                            "$ref": "#/definitions/models.Action"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверные данные",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/actions/{id}/status": {
+            "put": {
+                "description": "Обновляет статус действия и сохраняет ответ от агента",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "actions"
+                ],
+                "summary": "Обновление статуса действия",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID действия",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bearer токен агента",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Ответ агента",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.ActionResponse"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Действие обновлено",
+                        "schema": {
+                            "$ref": "#/definitions/models.Action"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверные данные",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Неверный токен агента",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Действие не найдено",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/agent/ping": {
             "post": {
-                "description": "Получает данные мониторинга от агента и сохраняет их в базе данных",
+                "description": "Получает данные мониторинга от агента и сохраняет их в базе данных, возвращает список невыполненных действий",
                 "consumes": [
                     "application/json"
                 ],
@@ -57,9 +219,12 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Данные успешно сохранены",
+                        "description": "Список невыполненных действий",
                         "schema": {
-                            "type": "string"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.Action"
+                            }
                         }
                     },
                     "400": {
@@ -461,6 +626,396 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/agents/{agent_id}/nginx-config": {
+            "get": {
+                "description": "Возвращает конфигурацию nginx для указанного агента",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "nginx"
+                ],
+                "summary": "Получить конфигурацию nginx агента",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID агента",
+                        "name": "agent_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.AgentNginxConfig"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/api/domains": {
+            "get": {
+                "description": "Возвращает список всех доменов с их маршрутами",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domains"
+                ],
+                "summary": "Получить список доменов",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DomainListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "post": {
+                "description": "Создает новый домен с указанным агентом",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domains"
+                ],
+                "summary": "Создать новый домен",
+                "parameters": [
+                    {
+                        "description": "Данные домена",
+                        "name": "domain",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateDomainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Domain"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/api/domains/routes": {
+            "post": {
+                "description": "Создает новый маршрут для домена",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domain-routes"
+                ],
+                "summary": "Создать маршрут домена",
+                "parameters": [
+                    {
+                        "description": "Данные маршрута",
+                        "name": "route",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateDomainRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.DomainRoute"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/api/domains/routes/{id}": {
+            "put": {
+                "description": "Обновляет информацию о маршруте домена",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domain-routes"
+                ],
+                "summary": "Обновить маршрут домена",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID маршрута",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные для обновления",
+                        "name": "route",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateDomainRouteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DomainRoute"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет маршрут домена",
+                "tags": [
+                    "domain-routes"
+                ],
+                "summary": "Удалить маршрут домена",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID маршрута",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/api/domains/{domain_id}/routes": {
+            "get": {
+                "description": "Возвращает все маршруты для указанного домена",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domain-routes"
+                ],
+                "summary": "Получить маршруты домена",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID домена",
+                        "name": "domain_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DomainRouteListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/api/domains/{id}": {
+            "get": {
+                "description": "Возвращает детальную информацию о домене",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domains"
+                ],
+                "summary": "Получить домен по ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID домена",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DomainDetail"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "put": {
+                "description": "Обновляет информацию о домене",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domains"
+                ],
+                "summary": "Обновить домен",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID домена",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные для обновления",
+                        "name": "domain",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateDomainRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Domain"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            },
+            "delete": {
+                "description": "Удаляет домен и все его маршруты",
+                "tags": [
+                    "domains"
+                ],
+                "summary": "Удалить домен",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID домена",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
+        "/api/domains/{id}/status": {
+            "get": {
+                "description": "Возвращает статус домена с информацией о контейнерах",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "domains"
+                ],
+                "summary": "Получить статус домена",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID домена",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.DomainStatus"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "500": {
+                        "description": "Internal Server Error"
+                    }
+                }
+            }
+        },
         "/containers": {
             "get": {
                 "security": [
@@ -771,44 +1326,63 @@ const docTemplate = `{
                 }
             }
         },
-        "/networks": {
+        "/notifications/settings": {
             "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список всех Docker сетей с фильтрацией",
+                "description": "Получает текущие настройки уведомлений",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "networks"
+                    "notifications"
                 ],
-                "summary": "Получить список сетей",
+                "summary": "Получение настроек уведомлений",
+                "responses": {
+                    "200": {
+                        "description": "Настройки уведомлений",
+                        "schema": {
+                            "$ref": "#/definitions/models.NotificationSettings"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Обновляет настройки уведомлений",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "notifications"
+                ],
+                "summary": "Обновление настроек уведомлений",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "ID агента для фильтрации",
-                        "name": "agent_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Поиск по имени сети",
-                        "name": "search",
-                        "in": "query"
+                        "description": "Настройки уведомлений",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.NotificationSettings"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Список сетей",
+                        "description": "Настройки обновлены",
                         "schema": {
-                            "$ref": "#/definitions/models.NetworkListResponse"
+                            "$ref": "#/definitions/models.NotificationSettings"
                         }
                     },
-                    "401": {
-                        "description": "Не авторизован",
+                    "400": {
+                        "description": "Неверные данные",
                         "schema": {
                             "type": "string"
                         }
@@ -822,50 +1396,34 @@ const docTemplate = `{
                 }
             }
         },
-        "/volumes": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список всех Docker томов с фильтрацией",
+        "/notifications/test": {
+            "post": {
+                "description": "Отправляет тестовое уведомление в Telegram",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "volumes"
+                    "notifications"
                 ],
-                "summary": "Получить список томов",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ID агента для фильтрации",
-                        "name": "agent_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Поиск по имени тома",
-                        "name": "search",
-                        "in": "query"
-                    }
-                ],
+                "summary": "Отправка тестового уведомления",
                 "responses": {
                     "200": {
-                        "description": "Список томов",
+                        "description": "Уведомление отправлено",
                         "schema": {
-                            "$ref": "#/definitions/models.VolumeListResponse"
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
                         }
                     },
-                    "401": {
-                        "description": "Не авторизован",
+                    "400": {
+                        "description": "Не настроен токен бота",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Ошибка сервера",
+                        "description": "Ошибка отправки",
                         "schema": {
                             "type": "string"
                         }
@@ -875,6 +1433,70 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.Action": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "completed": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "response": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ActionListResponse": {
+            "type": "object",
+            "properties": {
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Action"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ActionResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "response": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Agent": {
             "type": "object",
             "properties": {
@@ -949,12 +1571,6 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "networks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.NetworkDetail"
-                    }
-                },
                 "public_ip": {
                     "type": "string"
                 },
@@ -970,12 +1586,6 @@ const docTemplate = `{
                 },
                 "token": {
                     "type": "string"
-                },
-                "volumes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.VolumeDetail"
-                    }
                 }
             }
         },
@@ -1002,6 +1612,20 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AgentNginxConfig": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "domains": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NginxConfig"
+                    }
+                }
+            }
+        },
         "models.CPUInfo": {
             "type": "object",
             "properties": {
@@ -1021,6 +1645,20 @@ const docTemplate = `{
                 },
                 "usage": {
                     "type": "number"
+                }
+            }
+        },
+        "models.CPUThresholdConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "integer"
                 }
             }
         },
@@ -1136,12 +1774,6 @@ const docTemplate = `{
                 "network_sent_bytes": {
                     "type": "integer"
                 },
-                "networks": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "ping_id": {
                     "type": "string"
                 },
@@ -1150,12 +1782,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
-                },
-                "volumes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -1200,12 +1826,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
-                },
-                "volumes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
@@ -1257,17 +1877,26 @@ const docTemplate = `{
         "models.ContainerNetworkInfo": {
             "type": "object",
             "properties": {
-                "networks": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "received": {
                     "type": "integer"
                 },
                 "sent": {
                     "type": "integer"
+                }
+            }
+        },
+        "models.CreateActionRequest": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -1278,6 +1907,42 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Production Server 1"
+                }
+            }
+        },
+        "models.CreateDomainRequest": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "dashboard.domain.net"
+                },
+                "ssl_enabled": {
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "models.CreateDomainRouteRequest": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string",
+                    "example": "my-container"
+                },
+                "domain_id": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string",
+                    "example": "/api"
+                },
+                "port": {
+                    "type": "string",
+                    "example": "3000"
                 }
             }
         },
@@ -1364,18 +2029,183 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.ImageInfo"
                     }
+                }
+            }
+        },
+        "models.Domain": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "description": "ID агента, на котором размещен домен",
+                    "type": "string"
                 },
-                "networks": {
+                "agent_ip": {
+                    "description": "IP адрес агента",
+                    "type": "string"
+                },
+                "agent_name": {
+                    "description": "Дополнительные поля для совместимости с frontend",
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "description": "активен ли домен",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "например: \"dashboard.domain.net\"",
+                    "type": "string"
+                },
+                "ssl_enabled": {
+                    "description": "включен ли SSL",
+                    "type": "boolean"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DomainDetail": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "$ref": "#/definitions/models.Agent"
+                },
+                "agent_id": {
+                    "description": "ID агента, на котором размещен домен",
+                    "type": "string"
+                },
+                "agent_ip": {
+                    "description": "IP адрес агента",
+                    "type": "string"
+                },
+                "agent_name": {
+                    "description": "Дополнительные поля для совместимости с frontend",
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "description": "активен ли домен",
+                    "type": "boolean"
+                },
+                "name": {
+                    "description": "например: \"dashboard.domain.net\"",
+                    "type": "string"
+                },
+                "routes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.NetworkDocker"
+                        "$ref": "#/definitions/models.DomainRoute"
                     }
                 },
-                "volumes": {
+                "ssl_enabled": {
+                    "description": "включен ли SSL",
+                    "type": "boolean"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DomainListResponse": {
+            "type": "object",
+            "properties": {
+                "domains": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.VolumeInfo"
+                        "$ref": "#/definitions/models.DomainDetail"
                     }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.DomainRoute": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "description": "имя контейнера",
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "domain_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "path": {
+                    "description": "путь (опционально, для /api/*)",
+                    "type": "string"
+                },
+                "port": {
+                    "description": "порт контейнера",
+                    "type": "string"
+                },
+                "updated": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.DomainRouteListResponse": {
+            "type": "object",
+            "properties": {
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DomainRoute"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.DomainStatus": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "agent_ip": {
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
+                "domain_id": {
+                    "type": "string"
+                },
+                "domain_name": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RouteStatus"
+                    }
+                },
+                "ssl_enabled": {
+                    "type": "boolean"
                 }
             }
         },
@@ -1532,67 +2362,6 @@ const docTemplate = `{
                 }
             }
         },
-        "models.NetworkDetail": {
-            "type": "object",
-            "properties": {
-                "agent": {
-                    "$ref": "#/definitions/models.Agent"
-                },
-                "created": {
-                    "type": "string"
-                },
-                "driver": {
-                    "type": "string"
-                },
-                "gateway": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "network_id": {
-                    "type": "string"
-                },
-                "ping_id": {
-                    "type": "string"
-                },
-                "scope": {
-                    "type": "string"
-                },
-                "subnet": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.NetworkDocker": {
-            "type": "object",
-            "properties": {
-                "created": {
-                    "type": "string"
-                },
-                "driver": {
-                    "type": "string"
-                },
-                "gateway": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "scope": {
-                    "type": "string"
-                },
-                "subnet": {
-                    "type": "string"
-                }
-            }
-        },
         "models.NetworkInfo": {
             "type": "object",
             "properties": {
@@ -1603,20 +2372,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "sent": {
-                    "type": "integer"
-                }
-            }
-        },
-        "models.NetworkListResponse": {
-            "type": "object",
-            "properties": {
-                "networks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.NetworkDetail"
-                    }
-                },
-                "total": {
                     "type": "integer"
                 }
             }
@@ -1641,6 +2396,88 @@ const docTemplate = `{
                 }
             }
         },
+        "models.NginxConfig": {
+            "type": "object",
+            "properties": {
+                "agent_ip": {
+                    "type": "string"
+                },
+                "domain": {
+                    "type": "string"
+                },
+                "routes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.NginxRoute"
+                    }
+                },
+                "ssl_cert": {
+                    "$ref": "#/definitions/models.SSLCertificate"
+                },
+                "ssl_enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.NginxRoute": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "description": "имя контейнера",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "например: \"/\" или \"/api\"",
+                    "type": "string"
+                },
+                "port": {
+                    "description": "порт контейнера",
+                    "type": "string"
+                }
+            }
+        },
+        "models.NotificationConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.NotificationConfigurations": {
+            "type": "object",
+            "properties": {
+                "agent_offline": {
+                    "$ref": "#/definitions/models.NotificationConfig"
+                },
+                "container_stopped": {
+                    "$ref": "#/definitions/models.NotificationConfig"
+                },
+                "cpu_threshold": {
+                    "$ref": "#/definitions/models.CPUThresholdConfig"
+                },
+                "ram_threshold": {
+                    "$ref": "#/definitions/models.RAMThresholdConfig"
+                }
+            }
+        },
+        "models.NotificationSettings": {
+            "type": "object",
+            "properties": {
+                "notifications": {
+                    "$ref": "#/definitions/models.NotificationConfigurations"
+                },
+                "telegram_bot_token": {
+                    "type": "string"
+                },
+                "telegram_chat_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.RAMInfo": {
             "type": "object",
             "properties": {
@@ -1648,6 +2485,20 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "usage": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RAMThresholdConfig": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "threshold": {
                     "type": "integer"
                 }
             }
@@ -1675,6 +2526,41 @@ const docTemplate = `{
                 }
             }
         },
+        "models.RouteStatus": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "container_status": {
+                    "description": "running, stopped, etc.",
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "string"
+                },
+                "route_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.SSLCertificate": {
+            "type": "object",
+            "properties": {
+                "private_key": {
+                    "type": "string"
+                },
+                "public_key": {
+                    "type": "string"
+                }
+            }
+        },
         "models.SwapInfo": {
             "type": "object",
             "properties": {
@@ -1691,6 +2577,18 @@ const docTemplate = `{
             "properties": {
                 "cpu_usage": {
                     "type": "number"
+                },
+                "disk_read": {
+                    "type": "integer"
+                },
+                "disk_write": {
+                    "type": "integer"
+                },
+                "network_received": {
+                    "type": "integer"
+                },
+                "network_sent": {
+                    "type": "integer"
                 },
                 "public_ip": {
                     "type": "string"
@@ -1720,6 +2618,40 @@ const docTemplate = `{
                 }
             }
         },
+        "models.UpdateDomainRequest": {
+            "type": "object",
+            "properties": {
+                "agent_id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "ssl_enabled": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.UpdateDomainRouteRequest": {
+            "type": "object",
+            "properties": {
+                "container_name": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "port": {
+                    "type": "string"
+                }
+            }
+        },
         "models.User": {
             "type": "object",
             "properties": {
@@ -1743,63 +2675,6 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
-                }
-            }
-        },
-        "models.VolumeDetail": {
-            "type": "object",
-            "properties": {
-                "agent": {
-                    "$ref": "#/definitions/models.Agent"
-                },
-                "created": {
-                    "type": "string"
-                },
-                "driver": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "mountpoint": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "ping_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.VolumeInfo": {
-            "type": "object",
-            "properties": {
-                "created": {
-                    "type": "string"
-                },
-                "driver": {
-                    "type": "string"
-                },
-                "mountpoint": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.VolumeListResponse": {
-            "type": "object",
-            "properties": {
-                "total": {
-                    "type": "integer"
-                },
-                "volumes": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.VolumeDetail"
-                    }
                 }
             }
         }

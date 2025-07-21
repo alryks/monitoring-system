@@ -1,5 +1,47 @@
 basePath: /api
 definitions:
+  models.Action:
+    properties:
+      agent_id:
+        type: string
+      completed:
+        type: string
+      created:
+        type: string
+      error:
+        type: string
+      id:
+        type: string
+      payload:
+        additionalProperties: true
+        type: object
+      response:
+        type: string
+      status:
+        type: string
+      type:
+        type: string
+    type: object
+  models.ActionListResponse:
+    properties:
+      actions:
+        items:
+          $ref: '#/definitions/models.Action'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.ActionResponse:
+    properties:
+      error:
+        type: string
+      id:
+        type: string
+      response:
+        type: string
+      status:
+        type: string
+    type: object
   models.Agent:
     properties:
       created:
@@ -49,10 +91,6 @@ definitions:
         $ref: '#/definitions/models.AgentMetrics'
       name:
         type: string
-      networks:
-        items:
-          $ref: '#/definitions/models.NetworkDetail'
-        type: array
       public_ip:
         type: string
       status:
@@ -64,10 +102,6 @@ definitions:
         type: array
       token:
         type: string
-      volumes:
-        items:
-          $ref: '#/definitions/models.VolumeDetail'
-        type: array
     type: object
   models.AgentMetrics:
     properties:
@@ -84,6 +118,15 @@ definitions:
       network:
         $ref: '#/definitions/models.NetworkMetricCurrent'
     type: object
+  models.AgentNginxConfig:
+    properties:
+      agent_id:
+        type: string
+      domains:
+        items:
+          $ref: '#/definitions/models.NginxConfig'
+        type: array
+    type: object
   models.CPUInfo:
     properties:
       name:
@@ -97,6 +140,15 @@ definitions:
         type: string
       usage:
         type: number
+    type: object
+  models.CPUThresholdConfig:
+    properties:
+      enabled:
+        type: boolean
+      message:
+        type: string
+      threshold:
+        type: integer
     type: object
   models.Container:
     properties:
@@ -173,20 +225,12 @@ definitions:
         type: integer
       network_sent_bytes:
         type: integer
-      networks:
-        items:
-          type: string
-        type: array
       ping_id:
         type: string
       restart_count:
         type: integer
       status:
         type: string
-      volumes:
-        items:
-          type: string
-        type: array
     type: object
   models.ContainerInfo:
     properties:
@@ -216,10 +260,6 @@ definitions:
         type: integer
       status:
         type: string
-      volumes:
-        items:
-          type: string
-        type: array
     type: object
   models.ContainerListResponse:
     properties:
@@ -252,20 +292,51 @@ definitions:
     type: object
   models.ContainerNetworkInfo:
     properties:
-      networks:
-        items:
-          type: string
-        type: array
       received:
         type: integer
       sent:
         type: integer
+    type: object
+  models.CreateActionRequest:
+    properties:
+      agent_id:
+        type: string
+      payload:
+        additionalProperties: true
+        type: object
+      type:
+        type: string
     type: object
   models.CreateAgentRequest:
     description: Запрос на создание нового агента мониторинга
     properties:
       name:
         example: Production Server 1
+        type: string
+    type: object
+  models.CreateDomainRequest:
+    properties:
+      agent_id:
+        type: string
+      name:
+        example: dashboard.domain.net
+        type: string
+      ssl_enabled:
+        example: false
+        type: boolean
+    type: object
+  models.CreateDomainRouteRequest:
+    properties:
+      container_name:
+        example: my-container
+        type: string
+      domain_id:
+        type: string
+      path:
+        example: /api
+        type: string
+      port:
+        example: "3000"
         type: string
     type: object
   models.DashboardData:
@@ -323,14 +394,127 @@ definitions:
         items:
           $ref: '#/definitions/models.ImageInfo'
         type: array
-      networks:
+    type: object
+  models.Domain:
+    properties:
+      agent_id:
+        description: ID агента, на котором размещен домен
+        type: string
+      agent_ip:
+        description: IP адрес агента
+        type: string
+      agent_name:
+        description: Дополнительные поля для совместимости с frontend
+        type: string
+      created:
+        type: string
+      id:
+        type: string
+      is_active:
+        description: активен ли домен
+        type: boolean
+      name:
+        description: 'например: "dashboard.domain.net"'
+        type: string
+      ssl_enabled:
+        description: включен ли SSL
+        type: boolean
+      updated:
+        type: string
+    type: object
+  models.DomainDetail:
+    properties:
+      agent:
+        $ref: '#/definitions/models.Agent'
+      agent_id:
+        description: ID агента, на котором размещен домен
+        type: string
+      agent_ip:
+        description: IP адрес агента
+        type: string
+      agent_name:
+        description: Дополнительные поля для совместимости с frontend
+        type: string
+      created:
+        type: string
+      id:
+        type: string
+      is_active:
+        description: активен ли домен
+        type: boolean
+      name:
+        description: 'например: "dashboard.domain.net"'
+        type: string
+      routes:
         items:
-          $ref: '#/definitions/models.NetworkDocker'
+          $ref: '#/definitions/models.DomainRoute'
         type: array
-      volumes:
+      ssl_enabled:
+        description: включен ли SSL
+        type: boolean
+      updated:
+        type: string
+    type: object
+  models.DomainListResponse:
+    properties:
+      domains:
         items:
-          $ref: '#/definitions/models.VolumeInfo'
+          $ref: '#/definitions/models.DomainDetail'
         type: array
+      total:
+        type: integer
+    type: object
+  models.DomainRoute:
+    properties:
+      container_name:
+        description: имя контейнера
+        type: string
+      created:
+        type: string
+      domain_id:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      path:
+        description: путь (опционально, для /api/*)
+        type: string
+      port:
+        description: порт контейнера
+        type: string
+      updated:
+        type: string
+    type: object
+  models.DomainRouteListResponse:
+    properties:
+      routes:
+        items:
+          $ref: '#/definitions/models.DomainRoute'
+        type: array
+      total:
+        type: integer
+    type: object
+  models.DomainStatus:
+    properties:
+      agent_id:
+        type: string
+      agent_ip:
+        type: string
+      agent_name:
+        type: string
+      domain_id:
+        type: string
+      domain_name:
+        type: string
+      is_active:
+        type: boolean
+      routes:
+        items:
+          $ref: '#/definitions/models.RouteStatus'
+        type: array
+      ssl_enabled:
+        type: boolean
     type: object
   models.ImageDetail:
     properties:
@@ -433,46 +617,6 @@ definitions:
       network:
         $ref: '#/definitions/models.NetworkInfo'
     type: object
-  models.NetworkDetail:
-    properties:
-      agent:
-        $ref: '#/definitions/models.Agent'
-      created:
-        type: string
-      driver:
-        type: string
-      gateway:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      network_id:
-        type: string
-      ping_id:
-        type: string
-      scope:
-        type: string
-      subnet:
-        type: string
-    type: object
-  models.NetworkDocker:
-    properties:
-      created:
-        type: string
-      driver:
-        type: string
-      gateway:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      scope:
-        type: string
-      subnet:
-        type: string
-    type: object
   models.NetworkInfo:
     properties:
       public_ip:
@@ -480,15 +624,6 @@ definitions:
       received:
         type: integer
       sent:
-        type: integer
-    type: object
-  models.NetworkListResponse:
-    properties:
-      networks:
-        items:
-          $ref: '#/definitions/models.NetworkDetail'
-        type: array
-      total:
         type: integer
     type: object
   models.NetworkMetricCurrent:
@@ -504,11 +639,74 @@ definitions:
       sent_speed:
         type: integer
     type: object
+  models.NginxConfig:
+    properties:
+      agent_ip:
+        type: string
+      domain:
+        type: string
+      routes:
+        items:
+          $ref: '#/definitions/models.NginxRoute'
+        type: array
+      ssl_cert:
+        $ref: '#/definitions/models.SSLCertificate'
+      ssl_enabled:
+        type: boolean
+    type: object
+  models.NginxRoute:
+    properties:
+      container_name:
+        description: имя контейнера
+        type: string
+      path:
+        description: 'например: "/" или "/api"'
+        type: string
+      port:
+        description: порт контейнера
+        type: string
+    type: object
+  models.NotificationConfig:
+    properties:
+      enabled:
+        type: boolean
+      message:
+        type: string
+    type: object
+  models.NotificationConfigurations:
+    properties:
+      agent_offline:
+        $ref: '#/definitions/models.NotificationConfig'
+      container_stopped:
+        $ref: '#/definitions/models.NotificationConfig'
+      cpu_threshold:
+        $ref: '#/definitions/models.CPUThresholdConfig'
+      ram_threshold:
+        $ref: '#/definitions/models.RAMThresholdConfig'
+    type: object
+  models.NotificationSettings:
+    properties:
+      notifications:
+        $ref: '#/definitions/models.NotificationConfigurations'
+      telegram_bot_token:
+        type: string
+      telegram_chat_id:
+        type: string
+    type: object
   models.RAMInfo:
     properties:
       total:
         type: integer
       usage:
+        type: integer
+    type: object
+  models.RAMThresholdConfig:
+    properties:
+      enabled:
+        type: boolean
+      message:
+        type: string
+      threshold:
         type: integer
     type: object
   models.RecentMetric:
@@ -526,6 +724,29 @@ definitions:
       timestamp:
         type: string
     type: object
+  models.RouteStatus:
+    properties:
+      container_name:
+        type: string
+      container_status:
+        description: running, stopped, etc.
+        type: string
+      is_active:
+        type: boolean
+      path:
+        type: string
+      port:
+        type: string
+      route_id:
+        type: string
+    type: object
+  models.SSLCertificate:
+    properties:
+      private_key:
+        type: string
+      public_key:
+        type: string
+    type: object
   models.SwapInfo:
     properties:
       total:
@@ -537,6 +758,14 @@ definitions:
     properties:
       cpu_usage:
         type: number
+      disk_read:
+        type: integer
+      disk_write:
+        type: integer
+      network_received:
+        type: integer
+      network_sent:
+        type: integer
       public_ip:
         type: string
       ram_usage:
@@ -555,6 +784,28 @@ definitions:
       total_ram_mb:
         type: integer
     type: object
+  models.UpdateDomainRequest:
+    properties:
+      agent_id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      ssl_enabled:
+        type: boolean
+    type: object
+  models.UpdateDomainRouteRequest:
+    properties:
+      container_name:
+        type: string
+      is_active:
+        type: boolean
+      path:
+        type: string
+      port:
+        type: string
+    type: object
   models.User:
     properties:
       created:
@@ -572,43 +823,6 @@ definitions:
       username:
         type: string
     type: object
-  models.VolumeDetail:
-    properties:
-      agent:
-        $ref: '#/definitions/models.Agent'
-      created:
-        type: string
-      driver:
-        type: string
-      id:
-        type: string
-      mountpoint:
-        type: string
-      name:
-        type: string
-      ping_id:
-        type: string
-    type: object
-  models.VolumeInfo:
-    properties:
-      created:
-        type: string
-      driver:
-        type: string
-      mountpoint:
-        type: string
-      name:
-        type: string
-    type: object
-  models.VolumeListResponse:
-    properties:
-      total:
-        type: integer
-      volumes:
-        items:
-          $ref: '#/definitions/models.VolumeDetail'
-        type: array
-    type: object
 host: localhost:8000
 info:
   contact:
@@ -623,11 +837,119 @@ info:
   title: Docker Monitoring System API
   version: "1.0"
 paths:
+  /actions:
+    get:
+      description: Получает список действий с фильтрацией
+      parameters:
+      - description: ID агента
+        in: query
+        name: agent_id
+        type: string
+      - description: Статус действия
+        in: query
+        name: status
+        type: string
+      - description: Тип действия
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список действий
+          schema:
+            $ref: '#/definitions/models.ActionListResponse'
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получение списка действий
+      tags:
+      - actions
+    post:
+      consumes:
+      - application/json
+      description: Создает новое действие для выполнения агентом
+      parameters:
+      - description: Данные действия
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateActionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Действие создано
+          schema:
+            $ref: '#/definitions/models.Action'
+        "400":
+          description: Неверные данные
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Создание действия
+      tags:
+      - actions
+  /actions/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Обновляет статус действия и сохраняет ответ от агента
+      parameters:
+      - description: ID действия
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Bearer токен агента
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Ответ агента
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.ActionResponse'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Действие обновлено
+          schema:
+            $ref: '#/definitions/models.Action'
+        "400":
+          description: Неверные данные
+          schema:
+            type: string
+        "401":
+          description: Неверный токен агента
+          schema:
+            type: string
+        "404":
+          description: Действие не найдено
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Обновление статуса действия
+      tags:
+      - actions
   /agent/ping:
     post:
       consumes:
       - application/json
-      description: Получает данные мониторинга от агента и сохраняет их в базе данных
+      description: Получает данные мониторинга от агента и сохраняет их в базе данных,
+        возвращает список невыполненных действий
       parameters:
       - description: Bearer токен агента
         in: header
@@ -644,9 +966,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: Данные успешно сохранены
+          description: Список невыполненных действий
           schema:
-            type: string
+            items:
+              $ref: '#/definitions/models.Action'
+            type: array
         "400":
           description: Неверные данные
           schema:
@@ -904,6 +1228,263 @@ paths:
       summary: Получить метрики агента
       tags:
       - agents
+  /api/agents/{agent_id}/nginx-config:
+    get:
+      description: Возвращает конфигурацию nginx для указанного агента
+      parameters:
+      - description: ID агента
+        in: path
+        name: agent_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.AgentNginxConfig'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Получить конфигурацию nginx агента
+      tags:
+      - nginx
+  /api/domains:
+    get:
+      description: Возвращает список всех доменов с их маршрутами
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DomainListResponse'
+        "500":
+          description: Internal Server Error
+      summary: Получить список доменов
+      tags:
+      - domains
+    post:
+      consumes:
+      - application/json
+      description: Создает новый домен с указанным агентом
+      parameters:
+      - description: Данные домена
+        in: body
+        name: domain
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateDomainRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Domain'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Создать новый домен
+      tags:
+      - domains
+  /api/domains/{domain_id}/routes:
+    get:
+      description: Возвращает все маршруты для указанного домена
+      parameters:
+      - description: ID домена
+        in: path
+        name: domain_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DomainRouteListResponse'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Получить маршруты домена
+      tags:
+      - domain-routes
+  /api/domains/{id}:
+    delete:
+      description: Удаляет домен и все его маршруты
+      parameters:
+      - description: ID домена
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Удалить домен
+      tags:
+      - domains
+    get:
+      description: Возвращает детальную информацию о домене
+      parameters:
+      - description: ID домена
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DomainDetail'
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+      summary: Получить домен по ID
+      tags:
+      - domains
+    put:
+      consumes:
+      - application/json
+      description: Обновляет информацию о домене
+      parameters:
+      - description: ID домена
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные для обновления
+        in: body
+        name: domain
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateDomainRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Domain'
+        "400":
+          description: Bad Request
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+      summary: Обновить домен
+      tags:
+      - domains
+  /api/domains/{id}/status:
+    get:
+      description: Возвращает статус домена с информацией о контейнерах
+      parameters:
+      - description: ID домена
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DomainStatus'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Получить статус домена
+      tags:
+      - domains
+  /api/domains/routes:
+    post:
+      consumes:
+      - application/json
+      description: Создает новый маршрут для домена
+      parameters:
+      - description: Данные маршрута
+        in: body
+        name: route
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateDomainRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.DomainRoute'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Создать маршрут домена
+      tags:
+      - domain-routes
+  /api/domains/routes/{id}:
+    delete:
+      description: Удаляет маршрут домена
+      parameters:
+      - description: ID маршрута
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Удалить маршрут домена
+      tags:
+      - domain-routes
+    put:
+      consumes:
+      - application/json
+      description: Обновляет информацию о маршруте домена
+      parameters:
+      - description: ID маршрута
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Данные для обновления
+        in: body
+        name: route
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateDomainRouteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.DomainRoute'
+        "400":
+          description: Bad Request
+        "500":
+          description: Internal Server Error
+      summary: Обновить маршрут домена
+      tags:
+      - domain-routes
   /containers:
     get:
       description: Возвращает список всех контейнеров с фильтрацией
@@ -1101,70 +1682,75 @@ paths:
       summary: Аутентификация пользователя
       tags:
       - auth
-  /networks:
+  /notifications/settings:
     get:
-      description: Возвращает список всех Docker сетей с фильтрацией
-      parameters:
-      - description: ID агента для фильтрации
-        in: query
-        name: agent_id
-        type: string
-      - description: Поиск по имени сети
-        in: query
-        name: search
-        type: string
+      description: Получает текущие настройки уведомлений
       produces:
       - application/json
       responses:
         "200":
-          description: Список сетей
+          description: Настройки уведомлений
           schema:
-            $ref: '#/definitions/models.NetworkListResponse'
-        "401":
-          description: Не авторизован
+            $ref: '#/definitions/models.NotificationSettings'
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      summary: Получение настроек уведомлений
+      tags:
+      - notifications
+    post:
+      consumes:
+      - application/json
+      description: Обновляет настройки уведомлений
+      parameters:
+      - description: Настройки уведомлений
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.NotificationSettings'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Настройки обновлены
+          schema:
+            $ref: '#/definitions/models.NotificationSettings'
+        "400":
+          description: Неверные данные
           schema:
             type: string
         "500":
           description: Ошибка сервера
           schema:
             type: string
-      security:
-      - BearerAuth: []
-      summary: Получить список сетей
+      summary: Обновление настроек уведомлений
       tags:
-      - networks
-  /volumes:
-    get:
-      description: Возвращает список всех Docker томов с фильтрацией
-      parameters:
-      - description: ID агента для фильтрации
-        in: query
-        name: agent_id
-        type: string
-      - description: Поиск по имени тома
-        in: query
-        name: search
-        type: string
+      - notifications
+  /notifications/test:
+    post:
+      description: Отправляет тестовое уведомление в Telegram
       produces:
       - application/json
       responses:
         "200":
-          description: Список томов
+          description: Уведомление отправлено
           schema:
-            $ref: '#/definitions/models.VolumeListResponse'
-        "401":
-          description: Не авторизован
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Не настроен токен бота
           schema:
             type: string
         "500":
-          description: Ошибка сервера
+          description: Ошибка отправки
           schema:
             type: string
-      security:
-      - BearerAuth: []
-      summary: Получить список томов
+      summary: Отправка тестового уведомления
       tags:
-      - volumes
+      - notifications
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.
